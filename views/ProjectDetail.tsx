@@ -50,29 +50,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     }
   };
 
-  const handleSubtaskToggle = (task: Task, subtaskId: string) => {
-    const updatedSubtasks = task.subtasks?.map(st => 
-        st.id === subtaskId ? { ...st, completed: !st.completed } : st
-    ) || [];
-    onUpdateTask({ ...task, subtasks: updatedSubtasks });
-  };
-
-  const handleAddSubtask = (task: Task, title: string) => {
-    const newSubtask: SubTask = {
-        id: `st-${Date.now()}`,
-        title,
-        completed: false
-    };
-    onUpdateTask({ ...task, subtasks: [...(task.subtasks || []), newSubtask] });
-  };
-
-  const handleSubtaskDeadline = (task: Task, subtaskId: string, deadline: string) => {
-    const updatedSubtasks = task.subtasks?.map(st => 
-        st.id === subtaskId ? { ...st, deadline } : st
-    ) || [];
-    onUpdateTask({ ...task, subtasks: updatedSubtasks });
-  };
-
   const handleNotesChange = (task: Task, notes: string) => {
     onUpdateTask({ ...task, notes });
   };
@@ -256,64 +233,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Subtasks Editing */}
-                                <div className="flex flex-col gap-4">
-                                    <div className="flex items-center justify-between">
-                                        <h5 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Subtasks</h5>
-                                    </div>
-                                    <div className="flex flex-col gap-3">
-                                        {task.subtasks?.map(st => (
-                                        <div key={st.id} className="flex flex-col gap-2 p-3 rounded-xl bg-background border border-border/50 hover:border-primary/30 transition-colors group/item shadow-sm">
-                                            <div className="flex items-center gap-3">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={st.completed}
-                                                    onChange={() => handleSubtaskToggle(task, st.id)}
-                                                    className="size-5 rounded-md border-muted-foreground/50 text-primary focus:ring-primary bg-transparent cursor-pointer"
-                                                />
-                                                <span className={`text-sm font-semibold flex-1 ${st.completed ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                                                    {st.title}
-                                                </span>
-                                                
-                                                {/* Compact Date Picker Trigger */}
-                                                <div className="relative group/date">
-                                                    <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border transition-all cursor-pointer ${st.deadline ? 'bg-secondary/50 border-primary/20 text-foreground' : 'bg-transparent border-transparent text-muted-foreground hover:bg-secondary'}`}>
-                                                        <span className="material-symbols-outlined text-[16px]">event</span>
-                                                        {st.deadline && (
-                                                            <span className="text-[10px] font-bold uppercase">
-                                                                {new Date(st.deadline).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {/* Hidden input overlay for native picker */}
-                                                    <input 
-                                                        type="date" 
-                                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
-                                                        value={st.deadline || ''}
-                                                        onChange={(e) => handleSubtaskDeadline(task, st.id, e.target.value)}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                        ))}
-                                        {/* Add Subtask Input */}
-                                        <div className="flex items-center gap-3 mt-1 p-2">
-                                            <span className="material-symbols-outlined text-muted-foreground">add</span>
-                                            <input 
-                                                type="text" 
-                                                placeholder="Add new subtask..."
-                                                className="bg-transparent border-none focus:ring-0 text-sm font-medium w-full placeholder:text-muted-foreground/70"
-                                                onKeyDown={(e) => {
-                                                    if(e.key === 'Enter') {
-                                                        handleAddSubtask(task, e.currentTarget.value);
-                                                        e.currentTarget.value = '';
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
                                 {/* Description Editing */}
                                 <div className="flex flex-col gap-3">
                                     <h5 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Notes</h5>
@@ -402,7 +321,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     max="100" 
                     value={project.progress}
                     onChange={(e) => handleProgressChange(Number(e.target.value))}
-                    className="w-full accent-primary h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+                    className="w-full accent-primary h-4 bg-secondary rounded-full appearance-none cursor-pointer"
+                    style={{
+                        background: `linear-gradient(to right, hsl(var(--primary)) ${project.progress}%, hsl(var(--secondary)) ${project.progress}%)`
+                    }}
                 />
                 
                 <div className="flex flex-col gap-3 pt-4 border-t border-border/50">

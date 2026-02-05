@@ -167,15 +167,26 @@ export const Analytics: React.FC<AnalyticsProps> = ({
                             <span className="text-xl font-mono font-bold text-primary">{formatDuration(dailyTarget)}</span>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <input 
-                                type="range" 
-                                min="1" 
-                                max="1440" 
-                                step="1"
-                                value={Math.floor(dailyTarget / 60)}
-                                onChange={(e) => onUpdateDailyTarget(Number(e.target.value) * 60)}
-                                className="w-full accent-primary h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
-                            />
+                            {(() => {
+                                const min = 1;
+                                const max = 1440;
+                                const val = Math.floor(dailyTarget / 60);
+                                const percentage = ((val - min) * 100) / (max - min);
+                                return (
+                                    <input 
+                                        type="range" 
+                                        min={min} 
+                                        max={max} 
+                                        step="1"
+                                        value={val}
+                                        onChange={(e) => onUpdateDailyTarget(Number(e.target.value) * 60)}
+                                        className="w-full accent-primary h-4 bg-secondary rounded-full appearance-none cursor-pointer"
+                                        style={{
+                                            background: `linear-gradient(to right, hsl(var(--primary)) ${percentage}%, hsl(var(--secondary)) ${percentage}%)`
+                                        }}
+                                    />
+                                );
+                            })()}
                             <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">
                                 <span>1m</span>
                                 <span>24h</span>
@@ -189,15 +200,26 @@ export const Analytics: React.FC<AnalyticsProps> = ({
                                 <span className="font-bold capitalize text-sm">{goal.period} Goal</span>
                                 <span className="font-mono font-bold text-sm">{formatDuration(goal.targetSeconds)}</span>
                             </div>
-                            <input 
-                                type="range" 
-                                min="10" 
-                                max={goal.period === 'weekly' ? 6000 : 25000} // ~100h max for weekly
-                                step="5" // 5 min steps
-                                value={Math.floor(goal.targetSeconds / 60)}
-                                onChange={(e) => onUpdateGoal(goal.id, Number(e.target.value) * 60)}
-                                className="w-full accent-primary h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer"
-                            />
+                            {(() => {
+                                const min = 10;
+                                const max = goal.period === 'weekly' ? 6000 : 25000;
+                                const val = Math.floor(goal.targetSeconds / 60);
+                                const percentage = ((val - min) * 100) / (max - min);
+                                return (
+                                    <input 
+                                        type="range" 
+                                        min={min} 
+                                        max={max}
+                                        step="5"
+                                        value={val}
+                                        onChange={(e) => onUpdateGoal(goal.id, Number(e.target.value) * 60)}
+                                        className="w-full accent-primary h-4 bg-secondary rounded-full appearance-none cursor-pointer"
+                                        style={{
+                                            background: `linear-gradient(to right, hsl(var(--primary)) ${percentage}%, hsl(var(--secondary)) ${percentage}%)`
+                                        }}
+                                    />
+                                );
+                            })()}
                         </div>
                     ))}
                  </div>

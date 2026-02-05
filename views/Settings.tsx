@@ -1,6 +1,5 @@
 
-import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
+import React from 'react';
 
 interface SettingsProps {
   isDarkMode: boolean;
@@ -9,90 +8,18 @@ interface SettingsProps {
 }
 
 export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onNavigateToHelp }) => {
-  // Test State
-  const [testTableName, setTestTableName] = useState('tasks');
-  const [testInputData, setTestInputData] = useState('New Supabase Task');
-  const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [testResult, setTestResult] = useState<string>('');
-  const [fetchedTasks, setFetchedTasks] = useState<any[]>([]);
+  const handleEditProfile = () => {
+    alert("Profile editing is coming in the next update!");
+  };
 
-  const handleTestConnection = async () => {
-    if (!supabase) {
-        setTestResult("Supabase client not initialized. Check internet or CDN.");
-        return;
-    }
-    
-    setTestStatus('loading');
-    setTestResult('');
-    setFetchedTasks([]);
-    
-    try {
-        // 1. Insert Data
-        if (testInputData.trim()) {
-            const { error: insertError } = await supabase
-                .from(testTableName)
-                .insert([{ title: testInputData }]);
-
-            if (insertError) throw insertError;
-        }
-
-        // 2. Fetch Data (Display)
-        const { data: fetchData, error: fetchError } = await supabase
-            .from(testTableName)
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(5);
-
-        if (fetchError) throw fetchError;
-
-        console.log("Supabase Fetch Response:", fetchData);
-
-        setTestStatus('success');
-        setFetchedTasks(fetchData || []);
-        setTestResult(JSON.stringify(fetchData, null, 2));
-
-    } catch (err: any) {
-        console.error("Supabase Error:", err);
-        setTestStatus('error');
-        setTestResult(`Error: ${err.message || JSON.stringify(err)}`);
+  const handleSignOut = () => {
+    if (window.confirm("Are you sure you want to sign out?")) {
+        alert("You have been signed out.");
     }
   };
 
-  const toggleSupabaseTask = async (task: any) => {
-    if (!supabase) return;
-
-    // Detect completion field (supports 'completed', 'is_complete', or 'status')
-    let field = 'completed';
-    let newVal: any = true;
-
-    if ('is_complete' in task) {
-        field = 'is_complete';
-        newVal = !task.is_complete;
-    } else if ('status' in task) {
-        field = 'status';
-        newVal = task.status === 'completed' ? 'active' : 'completed';
-    } else {
-        // Default to 'completed' boolean
-        newVal = !task.completed;
-    }
-
-    // Optimistic Update
-    const originalTasks = [...fetchedTasks];
-    setFetchedTasks(prev => prev.map(t => t.id === task.id ? { ...t, [field]: newVal } : t));
-
-    try {
-        const { error } = await supabase
-            .from(testTableName)
-            .update({ [field]: newVal })
-            .eq('id', task.id);
-
-        if (error) throw error;
-    } catch (err: any) {
-        console.error("Update failed", err);
-        // Revert
-        setFetchedTasks(originalTasks);
-        alert(`Failed to update task: ${err.message}`);
-    }
+  const handleNotificationsToggle = () => {
+      alert("Notification settings updated.");
   };
 
   return (
@@ -116,95 +43,13 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
                   <div>
                       <h3 className="font-bold text-xl">Alex Designer</h3>
                       <p className="text-sm text-muted-foreground font-medium">alex@example.com</p>
-                      <button className="text-primary text-xs font-bold uppercase mt-2 hover:underline tracking-wide">Edit Profile</button>
+                      <button 
+                        onClick={handleEditProfile}
+                        className="text-primary text-xs font-bold uppercase mt-2 hover:underline tracking-wide"
+                      >
+                          Edit Profile
+                      </button>
                   </div>
-              </div>
-          </section>
-
-          <section className="flex flex-col gap-4">
-              <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">Backend Integration Test</h2>
-              <div className="flex flex-col gap-4 p-5 bg-card border border-border rounded-[1.5rem] shadow-sm">
-                  <p className="text-sm text-muted-foreground">
-                      Test the connection to your Supabase backend. Inserting a row will fetch the latest 5 items.
-                  </p>
-                  
-                  <div className="flex flex-col gap-2">
-                      <label className="text-xs font-bold uppercase text-muted-foreground">Target Table</label>
-                      <input 
-                        type="text" 
-                        value={testTableName}
-                        onChange={(e) => setTestTableName(e.target.value)}
-                        className="bg-background border border-border rounded-xl px-4 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                      />
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                      <label className="text-xs font-bold uppercase text-muted-foreground">Task Title (Optional)</label>
-                      <input 
-                        type="text" 
-                        value={testInputData}
-                        onChange={(e) => setTestInputData(e.target.value)}
-                        placeholder="Leave empty to just fetch"
-                        className="bg-background border border-border rounded-xl px-4 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                      />
-                  </div>
-
-                  <button 
-                    onClick={handleTestConnection}
-                    disabled={testStatus === 'loading'}
-                    className={`mt-2 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold uppercase tracking-wider transition-all
-                        ${testStatus === 'loading' ? 'bg-secondary text-muted-foreground cursor-wait' : 'bg-primary text-primary-foreground hover:brightness-110 active:scale-95'}
-                    `}
-                  >
-                    {testStatus === 'loading' ? (
-                        <>
-                            <span className="size-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin"></span>
-                            Connecting...
-                        </>
-                    ) : (
-                        <>
-                            <span className="material-symbols-outlined text-lg">cloud_sync</span>
-                            Test Connection
-                        </>
-                    )}
-                  </button>
-
-                  {/* Interactive Result List */}
-                  {fetchedTasks.length > 0 && (
-                      <div className="flex flex-col gap-2 mt-4">
-                          <h3 className="text-xs font-bold uppercase text-muted-foreground mb-1">Latest Rows</h3>
-                          {fetchedTasks.map((task, idx) => {
-                              const isCompleted = task.completed || task.is_complete || task.status === 'completed';
-                              return (
-                                  <div key={task.id || idx} className="flex items-center gap-3 p-3 bg-background border border-border rounded-xl shadow-sm transition-all hover:border-primary/30">
-                                      <button 
-                                        onClick={() => toggleSupabaseTask(task)}
-                                        className={`size-6 shrink-0 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${isCompleted ? 'bg-green-500 border-green-500' : 'border-muted-foreground hover:border-primary'}`}
-                                      >
-                                          {isCompleted && <span className="material-symbols-outlined text-sm text-white font-bold animate-in zoom-in duration-200">check</span>}
-                                      </button>
-                                      <span className={`text-sm font-medium truncate flex-1 ${isCompleted ? 'line-through text-muted-foreground decoration-2 decoration-muted-foreground/50' : 'text-foreground'}`}>
-                                          {task.title || task.name || <span className="italic text-muted-foreground">Untitled Task</span>}
-                                      </span>
-                                      <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-2 py-1 rounded">
-                                          {task.id?.toString().slice(0,4)}...
-                                      </span>
-                                  </div>
-                              );
-                          })}
-                      </div>
-                  )}
-
-                  {testResult && (
-                      <div className="mt-2">
-                          <details className="text-xs">
-                              <summary className="cursor-pointer font-bold text-muted-foreground hover:text-primary mb-2">View Raw Response</summary>
-                              <div className={`p-4 rounded-xl font-mono overflow-x-auto ${testStatus === 'error' ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-foreground'}`}>
-                                  <pre>{testResult}</pre>
-                              </div>
-                          </details>
-                      </div>
-                  )}
               </div>
           </section>
 
@@ -227,7 +72,10 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
                       </button>
                   </div>
                   
-                  <div className="flex items-center justify-between p-5 bg-card hover:bg-secondary/20 transition-colors">
+                  <div 
+                    onClick={handleNotificationsToggle}
+                    className="flex items-center justify-between p-5 bg-card hover:bg-secondary/20 transition-colors cursor-pointer"
+                  >
                       <div className="flex items-center gap-4">
                           <div className="p-2.5 rounded-xl bg-secondary text-foreground">
                               <span className="material-symbols-outlined block">notifications</span>
@@ -256,7 +104,10 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
                       <span className="material-symbols-outlined text-muted-foreground group-hover:translate-x-1 transition-transform">chevron_right</span>
                   </div>
                   
-                  <div className="flex items-center justify-between p-5 bg-card hover:bg-secondary/20 transition-colors cursor-pointer">
+                  <div 
+                    onClick={handleSignOut}
+                    className="flex items-center justify-between p-5 bg-card hover:bg-secondary/20 transition-colors cursor-pointer"
+                  >
                       <div className="flex items-center gap-4">
                           <div className="p-2.5 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
                               <span className="material-symbols-outlined block">logout</span>

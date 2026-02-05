@@ -89,26 +89,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
     .slice(0, 3);
 
   return (
-    <div className="flex flex-col gap-8 pb-32 animate-in fade-in duration-700 w-full">
+    <div className="flex flex-col gap-10 pb-40 animate-in fade-in duration-700 w-full">
       
       {/* Sticky Header */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 pt-4 pb-4 flex items-end justify-between border-b border-border/50 transition-all">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 pt-8 pb-4 flex items-end justify-between border-b border-border/50 transition-all">
          <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-none">Dashboard</h1>
-            <p className="text-sm font-semibold text-muted-foreground mt-1.5">Overview & Focus</p>
+            <p className="text-sm font-semibold text-muted-foreground mt-2">Overview & Focus</p>
          </div>
       </div>
 
-      <div className="px-6 flex flex-col lg:grid lg:grid-cols-12 lg:gap-8 max-w-7xl mx-auto w-full">
+      <div className="px-6 flex flex-col gap-12 lg:grid lg:grid-cols-12 lg:gap-12 max-w-7xl mx-auto w-full">
 
         {/* --- LEFT COLUMN (Main Focus) --- */}
-        <div className="flex flex-col gap-8 lg:col-span-7 xl:col-span-8">
+        <div className="flex flex-col gap-10 lg:col-span-7 xl:col-span-8">
             
             {/* Hero Timer Card */}
             <div className="relative w-full rounded-[2.5rem] bg-primary text-primary-foreground p-8 sm:p-12 shadow-2xl shadow-primary/20 overflow-visible group transition-all duration-300 ring-1 ring-white/10">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 blur-[100px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
                 
-                <div className="relative flex flex-col items-center gap-10 z-10">
+                <div className="relative flex flex-col items-center gap-12 z-10">
                 
                 {/* Custom Project Selector */}
                 {!timerState.isActive ? (
@@ -149,7 +149,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 
                 <div className="flex flex-col items-center">
                     <TimerDisplay seconds={totalDisplaySeconds} />
-                    <p className="mt-5 text-xs font-bold uppercase tracking-[0.25em] opacity-60">
+                    <p className="mt-6 text-xs font-bold uppercase tracking-[0.25em] opacity-60">
                     {timerState.isActive ? 'Session In Progress' : 'Total Focus Time'}
                     </p>
                 </div>
@@ -173,7 +173,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             {/* Recent Tasks (Desktop: Below Timer) */}
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
                 <div className="flex items-end justify-between px-1">
                     <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Recent Activity</h2>
                     <button onClick={onNavigateToHistory} className="text-[10px] font-bold uppercase tracking-wider text-primary hover:underline">See All</button>
@@ -215,14 +215,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* --- RIGHT COLUMN (Side Panel) --- */}
-        <div className="flex flex-col gap-8 lg:col-span-5 xl:col-span-4">
+        <div className="flex flex-col gap-10 lg:col-span-5 xl:col-span-4">
 
             {/* Progress & Goals (Grid for desktop) */}
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
                 <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">Progress & Goals</h2>
                 <div className="flex gap-4 overflow-x-auto pb-4 lg:grid lg:grid-cols-2 lg:overflow-visible lg:pb-0 snap-x snap-mandatory scrollbar-none">
                 {/* Daily Goal Card */}
-                <div className="snap-center shrink-0 w-[45%] lg:w-full min-w-[160px] flex flex-col items-center rounded-3xl bg-card p-6 border border-border shadow-sm hover:border-primary/20 transition-all cursor-default lg:col-span-2">
+                <div className="snap-center shrink-0 w-[80%] sm:w-[45%] lg:w-full min-w-[200px] flex flex-col items-center rounded-3xl bg-card p-6 border border-border shadow-sm hover:border-primary/20 transition-all cursor-default lg:col-span-2">
                     <div className="flex items-center gap-6 w-full justify-around">
                         <div className="text-primary relative shrink-0">
                             <ProgressRing radius={36} stroke={5} progress={dailyPercent} trackColor="hsl(var(--secondary))" />
@@ -235,12 +235,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 {formatDuration(dailyProgress)}
                                 <span className="text-sm text-muted-foreground font-medium ml-0.5">/ {formatDuration(dailyGoalTarget)}</span>
                             </h4>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-1">Daily Target</p>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-2">Daily Target</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="snap-center shrink-0 w-[45%] lg:w-full min-w-[160px] flex flex-col items-center rounded-3xl bg-card p-5 border border-border shadow-sm hover:border-primary/20 transition-all cursor-default">
+                <div className="snap-center shrink-0 w-[40%] sm:w-[30%] lg:w-full min-w-[140px] flex flex-col items-center rounded-3xl bg-card p-5 border border-border shadow-sm hover:border-primary/20 transition-all cursor-default">
                     <div className="mb-3 text-primary relative">
                         <ProgressRing radius={30} stroke={4} progress={weeklyPercent} trackColor="hsl(var(--secondary))" />
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -250,7 +250,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Weekly</p>
                 </div>
                 
-                <div className="snap-center shrink-0 w-[45%] lg:w-full min-w-[160px] flex flex-col items-center rounded-3xl bg-card p-5 border border-border shadow-sm hover:border-primary/20 transition-all cursor-default">
+                <div className="snap-center shrink-0 w-[40%] sm:w-[30%] lg:w-full min-w-[140px] flex flex-col items-center rounded-3xl bg-card p-5 border border-border shadow-sm hover:border-primary/20 transition-all cursor-default">
                     <div className="mb-3 text-primary relative">
                         <ProgressRing radius={30} stroke={4} progress={monthlyPercent} trackColor="hsl(var(--secondary))" />
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -263,7 +263,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             
             {/* Quick Access Container: Reminders & Inbox Combined */}
-            <div className="flex flex-col gap-4 bg-card/50 rounded-[2.5rem] p-6 lg:p-8 border border-border/50 shadow-sm backdrop-blur-sm lg:sticky lg:top-28">
+            <div className="flex flex-col gap-6 bg-card/50 rounded-[2.5rem] p-6 lg:p-8 border border-border/50 shadow-sm backdrop-blur-sm lg:sticky lg:top-28">
                 
                 {/* Reminders Section */}
                 <div>
@@ -293,7 +293,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="h-px bg-border/50 w-full my-2"></div>
 
                 {/* Inbox Section */}
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3">
                     <div 
                         onClick={() => setIsInboxExpanded(!isInboxExpanded)}
                         className="flex items-center justify-between cursor-pointer py-2 group"

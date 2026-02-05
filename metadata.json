@@ -1,0 +1,5 @@
+{
+  "name": "FocusFlow Task Manager",
+  "description": "A minimalist project task manager with integrated time tracking, goal setting, and analytics.",
+  "requestFramePermissions": []
+}

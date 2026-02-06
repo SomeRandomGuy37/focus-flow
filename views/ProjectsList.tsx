@@ -169,10 +169,10 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
        
        {/* Sticky Header - Standardized */}
        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-border/50 transition-all">
-         <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-none">Projects</h1>
-            <p className="text-sm font-semibold text-muted-foreground mt-1">Manage Workflows</p>
-         </div>
+            <div>
+                <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-none">Projects</h1>
+                <p className="text-sm font-semibold text-muted-foreground mt-2">Manage Workflows</p>
+            </div>
          
          <div className="flex items-center gap-2">
             {isEditMode ? (

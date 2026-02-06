@@ -58,8 +58,8 @@ export const Reminders: React.FC<RemindersProps> = ({ reminders, onAddReminder, 
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 py-4 flex flex-col gap-4 border-b border-border/50 transition-all">
         <div className="flex items-center justify-between">
             <div>
-                <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-none">Reminders</h1>
-                <p className="text-sm font-semibold text-muted-foreground mt-1">Scheduled Tasks</p>
+                <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-none">Reminders</h1>
+                <p className="text-sm font-semibold text-muted-foreground mt-2">Scheduled Tasks</p>
             </div>
         </div>
         

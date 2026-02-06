@@ -13,7 +13,7 @@ export const HelpSupport: React.FC<HelpSupportProps> = ({ onBack }) => {
         <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
             <span className="material-symbols-outlined text-xl">arrow_back</span>
         </button>
-        <h1 className="text-xl font-extrabold tracking-tight text-foreground">Help & Support</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-none">Help & Support</h1>
       </div>
 
       <main className="p-6 max-w-2xl mx-auto space-y-8 pb-32">

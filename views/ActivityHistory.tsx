@@ -23,8 +23,8 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ tasks, project
                 <span className="material-symbols-outlined text-xl">arrow_back</span>
             </button>
             <div>
-                <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-none">History</h1>
-                <p className="text-sm font-semibold text-muted-foreground mt-1">Past Activity</p>
+                <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-none">History</h1>
+                <p className="text-sm font-semibold text-muted-foreground mt-2">Past Activity</p>
             </div>
         </div>
       </div>

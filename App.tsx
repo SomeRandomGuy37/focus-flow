@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 // --- FIREBASE IMPORTS ---
 import { db } from './firebase'; 
-// Added Auth imports
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth';
+// ADDED: GoogleAuthProvider and signInWithPopup
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged, 
+  User,
+  GoogleAuthProvider,
+  signInWithPopup
+} from 'firebase/auth';
 import { 
   collection, 
   onSnapshot, 
@@ -36,7 +45,7 @@ const getWeekNumber = (d: Date) => {
     return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
-// --- AUTH COMPONENT (Login Screen) ---
+// --- AUTH COMPONENT (Login Screen with Google) ---
 const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -45,7 +54,7 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
   const [loading, setLoading] = useState(false);
   const auth = getAuth();
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -62,6 +71,19 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
     }
   };
 
+  const handleGoogleAuth = async () => {
+    setLoading(true);
+    setError('');
+    const provider = new GoogleAuthProvider();
+    try {
+        await signInWithPopup(auth, provider);
+    } catch (err: any) {
+        setError(err.message.replace('Firebase: ', ''));
+    } finally {
+        setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-6">
       <div className="w-full max-w-sm space-y-8 animate-in fade-in zoom-in duration-500">
@@ -72,36 +94,57 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
           </p>
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-4">
-          <div className="space-y-2">
-            <input 
-              type="email" 
-              placeholder="Email" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 rounded-xl bg-muted border border-border focus:ring-2 focus:ring-primary outline-none transition-all"
-              required 
-            />
-            <input 
-              type="password" 
-              placeholder="Password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 rounded-xl bg-muted border border-border focus:ring-2 focus:ring-primary outline-none transition-all"
-              required 
-            />
-          </div>
+        <div className="space-y-4">
+            {/* GOOGLE SIGN IN BUTTON */}
+            <button 
+                onClick={handleGoogleAuth}
+                disabled={loading}
+                className="w-full py-3 px-4 bg-white text-black border border-gray-300 font-bold rounded-xl transition-all hover:bg-gray-50 active:scale-95 flex items-center justify-center gap-2"
+            >
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
+                Sign in with Google
+            </button>
 
-          {error && <p className="text-sm text-red-500 text-center bg-red-500/10 p-2 rounded-lg">{error}</p>}
+            <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-muted" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                </div>
+            </div>
 
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full py-3 px-4 bg-primary hover:opacity-90 text-primary-foreground font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50"
-          >
-            {loading ? "Processing..." : (isSignUp ? "Sign Up" : "Sign In")}
-          </button>
-        </form>
+            <form onSubmit={handleEmailAuth} className="space-y-4">
+            <div className="space-y-2">
+                <input 
+                type="email" 
+                placeholder="Email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-3 rounded-xl bg-muted border border-border focus:ring-2 focus:ring-primary outline-none transition-all"
+                required 
+                />
+                <input 
+                type="password" 
+                placeholder="Password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-3 rounded-xl bg-muted border border-border focus:ring-2 focus:ring-primary outline-none transition-all"
+                required 
+                />
+            </div>
+
+            {error && <p className="text-sm text-red-500 text-center bg-red-500/10 p-2 rounded-lg">{error}</p>}
+
+            <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full py-3 px-4 bg-primary hover:opacity-90 text-primary-foreground font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50"
+            >
+                {loading ? "Processing..." : (isSignUp ? "Sign Up" : "Sign In")}
+            </button>
+            </form>
+        </div>
 
         <div className="text-center">
           <button 
@@ -167,7 +210,6 @@ function App() {
   // Listen for Settings
   useEffect(() => {
     if (!user || !db) return;
-    // Path: users/{uid}/settings
     const unsubscribe = onSnapshot(doc(db, "users", user.uid, "settings", "user_preferences"), (doc) => {
         if (doc.exists()) {
             const data = doc.data();

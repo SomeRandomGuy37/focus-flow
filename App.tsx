@@ -497,7 +497,7 @@ function App() {
     }
   };
 
-  const addTask = async (title: string, projectId: string, details?: { notes?: string, dueDate?: string, isPriority?: boolean }) => {
+  const addTask = async (title: string, projectId: string, details?: { notes?: string, dueDate?: string, isPriority?: boolean, order?: number }) => {
     if (!user || !db) return;
     const newTask: Task = { 
         id: `t-${Date.now()}`, 
@@ -507,24 +507,30 @@ function App() {
         totalTime: 0,
         notes: details?.notes,
         dueDate: details?.dueDate,
-        isPriority: details?.isPriority
+        isPriority: details?.isPriority,
+        order: details?.order ?? Date.now() // Use timestamp as default order if not provided
     };
     await setDoc(doc(db, "users", user.uid, "tasks", newTask.id), newTask);
   };
   
   const reorderTasks = async (reorderedTasks: Task[]) => {
-      // In a real app with 'order' field, we would batch update the order fields.
-      // Since we don't strictly have an 'order' field in the Task type in this snippet context without modifying Types,
-      // we assume the local state update in ProjectDetail handles the visual drag-drop. 
-      // To persist, we would need to add 'order' to Task type and update it here.
-      // For now, this is a placeholder if we wanted to persist order.
-      // To strictly satisfy the requirement "make it so that... rearranged", 
-      // if persistence is required, we'd add 'order' to Type.
-      // For this implementation, we will trust the View to handle the reorder visually 
-      // or update if we added an order index.
-      // Let's assume we just want the UI to work for now as per prompt "drag and rearrange tasks".
       if (!user || !db) return;
-      // Implementation for persisting order would go here (e.g. batch update 'order' field)
+      const batch = writeBatch(db);
+      reorderedTasks.forEach((task, index) => {
+          const ref = doc(db, "users", user.uid, "tasks", task.id);
+          batch.update(ref, { order: index });
+      });
+      await batch.commit();
+  };
+
+  const reorderInboxTasks = async (reorderedTasks: InboxTask[]) => {
+      if (!user || !db) return;
+      const batch = writeBatch(db);
+      reorderedTasks.forEach((task, index) => {
+          const ref = doc(db, "users", user.uid, "inbox", task.id);
+          batch.update(ref, { order: index });
+      });
+      await batch.commit();
   };
 
   const updateTask = async (updatedTask: Task) => {
@@ -541,9 +547,9 @@ function App() {
     await updateDoc(taskRef, { subtasks: newSubtasks });
   };
 
-  const addInboxTask = async (title: string) => {
+  const addInboxTask = async (title: string, order?: number) => {
     if (!user || !db) return;
-    const newTask: InboxTask = { id: `i-${Date.now()}`, title, completed: false };
+    const newTask: InboxTask = { id: `i-${Date.now()}`, title, completed: false, order: order ?? Date.now() };
     await setDoc(doc(db, "users", user.uid, "inbox", newTask.id), newTask);
   };
 
@@ -553,17 +559,6 @@ function App() {
     if (!task) return;
     const taskRef = doc(db, "users", user.uid, "inbox", id);
     await updateDoc(taskRef, { completed: !task.completed });
-    // Keep completed tasks for history, maybe delete after a longer period or archive?
-    // Prompt implied showing short term tasks in history, so we shouldn't delete immediately if we want them in history.
-    // But original code deleted them. I will modify to NOT delete immediately so they show in history.
-    // Actually, let's keep the delete for "inbox" cleanup but maybe "History" view needs to pull from a different place 
-    // or we just don't delete them. 
-    // Let's comment out the delete for now to allow them to show in "Recent Completed".
-    /* 
-    setTimeout(async () => {
-        if (!task.completed) { await deleteDoc(doc(db, "users", user.uid, "inbox", id)); }
-    }, 2000); 
-    */
   };
 
   const addProject = async (project: Project) => {
@@ -658,12 +653,12 @@ function App() {
     switch (activeView) {
       case 'dashboard': return <Dashboard timerState={timerState} goals={goals} dailyGoalTarget={dailyGoalTarget} dailyProgress={dailyProgress} recentTasks={tasks.slice(0, 3)} allTasks={tasks} projects={projects} reminders={reminders} inboxTasks={inboxTasks} onToggleTimer={toggleTimer} onNavigateToTask={(projectId) => navigateToProject(projectId)} onAddTask={addTask} onAddInboxTask={addInboxTask} onToggleInboxTask={toggleInboxTask} onNavigateToHistory={navigateToActivityHistory} onToggleSubtask={toggleSubtask} />;
       case 'analytics': return <Analytics goals={goals} dailyTarget={dailyGoalTarget} dailyProgress={dailyProgress} onUpdateGoal={updateGoal} onUpdateDailyTarget={updateDailyTarget} onNavigateToHistory={navigateToActivityHistory} />;
-      case 'projects-list': return <ProjectsList projects={projects} tasks={tasks} inboxTasks={inboxTasks} onAddInboxTask={addInboxTask} onToggleInboxTask={toggleInboxTask} onSelectProject={navigateToProject} onDeleteProjects={deleteProjects} onAddProject={addProject} />;
+      case 'projects-list': return <ProjectsList projects={projects} tasks={tasks} inboxTasks={inboxTasks} onAddInboxTask={addInboxTask} onToggleInboxTask={toggleInboxTask} onSelectProject={navigateToProject} onDeleteProjects={deleteProjects} onAddProject={addProject} onReorderInboxTasks={reorderInboxTasks} />;
       case 'settings': return <Settings isDarkMode={isDarkMode} toggleTheme={handleThemeToggle} onNavigateToHelp={navigateToHelpSupport} onSignOut={handleSignOut} userProfile={userProfile} onUpdateProfile={updateUserProfile} />;
       case 'reminders': return <Reminders reminders={reminders} onAddReminder={addReminder} onToggleReminder={toggleReminder} />;
       case 'activity-history': return <ActivityHistory tasks={tasks} projects={projects} onBack={navigateToDashboard} />;
       case 'help-support': return <HelpSupport onBack={navigateToSettings} />;
-      case 'project': const project = projects.find(p => p.id === selectedProjectId); if (!project) return null; const projectTasks = tasks.filter(t => t.projectId === project.id); return <ProjectDetail project={project} tasks={projectTasks} timerState={timerState} onBack={navigateToProjectsList} onToggleTimer={toggleTimer} onUpdateTask={updateTask} onUpdateProject={updateProject} onAddReminder={addReminder} onAddTask={addTask} />;
+      case 'project': const project = projects.find(p => p.id === selectedProjectId); if (!project) return null; const projectTasks = tasks.filter(t => t.projectId === project.id); return <ProjectDetail project={project} tasks={projectTasks} timerState={timerState} onBack={navigateToProjectsList} onToggleTimer={toggleTimer} onUpdateTask={updateTask} onUpdateProject={updateProject} onAddReminder={addReminder} onAddTask={addTask} onReorderTasks={reorderTasks} />;
       default: return null;
     }
   };

@@ -19,12 +19,14 @@ export interface Task {
   notes?: string;
   dueDate?: string;
   isPriority?: boolean;
+  order?: number;
 }
 
 export interface InboxTask {
   id: string;
   title: string;
   completed: boolean;
+  order?: number;
 }
 
 export interface ProjectStats {

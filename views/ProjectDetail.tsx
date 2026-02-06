@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Project, Task, TimerState, SubTask, Reminder } from '../types';
 import { TimerDisplay } from '../components/TimerDisplay';
 import { ProgressRing } from '../components/ProgressRing';
@@ -15,7 +15,8 @@ interface ProjectDetailProps {
   onUpdateTask: (task: Task) => void;
   onUpdateProject: (project: Project) => void;
   onAddReminder: (reminder: Reminder) => void;
-  onAddTask: (title: string, projectId: string, details?: { notes?: string, dueDate?: string, isPriority?: boolean }) => void;
+  onAddTask: (title: string, projectId: string, details?: { notes?: string, dueDate?: string, isPriority?: boolean, order?: number }) => void;
+  onReorderTasks: (tasks: Task[]) => void;
 }
 
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ 
@@ -27,7 +28,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   onUpdateTask,
   onUpdateProject,
   onAddReminder,
-  onAddTask
+  onAddTask,
+  onReorderTasks
 }) => {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -38,11 +40,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [newTaskNotes, setNewTaskNotes] = useState('');
   const [newTaskDueDate, setNewTaskDueDate] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState(false);
+  const [newTaskInsertIndex, setNewTaskInsertIndex] = useState<number | null>(null);
+  
+  // Sort tasks by order initially
+  const [sortedTasks, setSortedTasks] = useState<Task[]>([]);
   
   // Drag and Drop State
-  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
-  const dragItemRef = useRef<number | null>(null);
-  const dragOverItemRef = useRef<number | null>(null);
+  const [draggedItem, setDraggedItem] = useState<Task | null>(null);
+  const dragOverItemRef = useRef<Task | null>(null);
+
+  useEffect(() => {
+      // Sort tasks by 'order' property if it exists, otherwise by index or ID
+      const sorted = [...tasks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      setSortedTasks(sorted);
+  }, [tasks]);
 
   // Stats
   const { stats } = project;
@@ -56,14 +67,45 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (newTaskTitle.trim()) {
-        onAddTask(newTaskTitle, project.id, { notes: newTaskNotes, dueDate: newTaskDueDate, isPriority: newTaskPriority });
+        // Calculate appropriate order
+        let order = Date.now();
+        if (newTaskInsertIndex !== null && sortedTasks.length > 0) {
+            // Insert at start
+            if (newTaskInsertIndex === 0) {
+                order = (sortedTasks[0].order ?? Date.now()) - 1000;
+            } 
+            // Insert at end
+            else if (newTaskInsertIndex >= sortedTasks.length) {
+                order = (sortedTasks[sortedTasks.length - 1].order ?? Date.now()) + 1000;
+            }
+            // Insert between
+            else {
+                const prev = sortedTasks[newTaskInsertIndex - 1].order ?? 0;
+                const next = sortedTasks[newTaskInsertIndex].order ?? 0;
+                order = (prev + next) / 2;
+            }
+        }
+
+        onAddTask(newTaskTitle, project.id, { 
+            notes: newTaskNotes, 
+            dueDate: newTaskDueDate, 
+            isPriority: newTaskPriority,
+            order: order
+        });
+        
         // Reset and close
         setNewTaskTitle('');
         setNewTaskNotes('');
         setNewTaskDueDate('');
         setNewTaskPriority(false);
+        setNewTaskInsertIndex(null);
         setIsTaskModalOpen(false);
     }
+  };
+
+  const openTaskModal = (insertIndex: number | null = null) => {
+      setNewTaskInsertIndex(insertIndex);
+      setIsTaskModalOpen(true);
   };
 
   const handleNotesChange = (task: Task, notes: string) => {
@@ -105,25 +147,43 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setIsAlertOpen(true);
   };
 
-  // --- Drag and Drop Logic ---
-  const handleDragStart = (e: React.DragEvent, index: number, taskId: string) => {
-    setDraggedTaskId(taskId);
-    dragItemRef.current = index;
-    // Set transparency or effect
+  // --- Drag and Drop Logic (Magnetic) ---
+  const handleDragStart = (e: React.DragEvent, task: Task) => {
+    setDraggedItem(task);
     e.dataTransfer.effectAllowed = 'move';
-    // Firefox requires this
-    e.dataTransfer.setData("text/html", taskId);
+    e.dataTransfer.setData("text/html", task.id); // Required for Firefox
+    
+    // Create a ghost image if needed, or rely on browser default.
+    // Browser default usually works well for cards.
   };
 
-  const handleDragEnter = (e: React.DragEvent, index: number) => {
-      dragOverItemRef.current = index;
+  const handleDragEnter = (e: React.DragEvent, targetTask: Task) => {
+      e.preventDefault();
+      if (!draggedItem || draggedItem.id === targetTask.id) return;
+
+      // Swap in local state immediately to create "magnetic" effect
+      const currentList = [...sortedTasks];
+      const draggedIndex = currentList.findIndex(t => t.id === draggedItem.id);
+      const targetIndex = currentList.findIndex(t => t.id === targetTask.id);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+          // Remove dragged item
+          currentList.splice(draggedIndex, 1);
+          // Insert at target index
+          currentList.splice(targetIndex, 0, draggedItem);
+          setSortedTasks(currentList);
+      }
   };
 
   const handleDragEnd = () => {
-    setDraggedTaskId(null);
-    if (dragItemRef.current === null || dragOverItemRef.current === null) return;
-    dragItemRef.current = null;
+    setDraggedItem(null);
     dragOverItemRef.current = null;
+    // Commit changes to global state/database
+    onReorderTasks(sortedTasks);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault(); // Necessary to allow dropping
   };
 
   return (
@@ -166,7 +226,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     <span className="bg-secondary text-foreground text-xs font-bold px-2.5 py-1 rounded-lg">{tasks.length}</span>
                 </div>
                 <button 
-                    onClick={() => setIsTaskModalOpen(true)}
+                    onClick={() => openTaskModal(sortedTasks.length)}
                     className="flex items-center gap-1.5 text-primary hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors"
                 >
                     <span className="material-symbols-outlined text-lg">add_task</span>
@@ -175,9 +235,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </div>
             
             <div className="flex flex-col gap-0">
-                {tasks.length === 0 ? (
+                {sortedTasks.length === 0 ? (
                     <div 
-                        onClick={() => setIsTaskModalOpen(true)}
+                        onClick={() => openTaskModal(0)}
                         className="p-8 text-center text-muted-foreground border border-dashed border-border rounded-2xl bg-secondary/5 hover:bg-secondary/20 hover:border-primary/50 hover:text-primary transition-all cursor-pointer group"
                     >
                         <div className="bg-background size-14 rounded-full mx-auto mb-3 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
@@ -187,40 +247,37 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         <p className="text-xs mt-1">Click to create your first task.</p>
                     </div>
                 ) : (
-                    tasks.map((task, index) => {
+                    sortedTasks.map((task, index) => {
                     const isActive = timerState.activeTaskId === task.id;
                     const isExpanded = expandedTaskId === task.id;
-                    const isDragging = draggedTaskId === task.id;
+                    const isDragging = draggedItem?.id === task.id;
                     const isPriority = task.isPriority;
                     
                     return (
-                        <div key={task.id}>
-                            {/* Insert Zone (Slide in) */}
-                            <div className="h-4 -my-2 w-full flex items-center justify-center opacity-0 hover:opacity-100 hover:h-8 transition-all group/insert cursor-pointer z-10 relative">
-                                <div 
-                                    className="w-full h-px bg-primary/20 group-hover/insert:bg-primary shadow-sm"
-                                    onClick={() => {
-                                        setNewTaskTitle(''); // Or open specific modal
-                                        setIsTaskModalOpen(true);
-                                    }}
-                                ></div>
-                                <div 
-                                    className="absolute bg-background border border-primary text-primary rounded-full size-6 flex items-center justify-center shadow-sm transform scale-0 group-hover/insert:scale-100 transition-transform"
-                                    onClick={() => setIsTaskModalOpen(true)}
-                                >
-                                    <span className="material-symbols-outlined text-sm font-bold">add</span>
+                        <div key={task.id} className="transition-all duration-300 ease-out">
+                            {/* Insert Zone (Slide in) - Enhanced Area */}
+                            <div 
+                                className="group/insert relative w-full h-2 hover:h-16 transition-all duration-300 ease-out flex items-center justify-center -my-1 z-10 cursor-pointer overflow-hidden"
+                                onClick={() => openTaskModal(index)}
+                            >
+                                <div className="w-full h-px bg-primary/10 group-hover/insert:bg-primary/50 transition-colors absolute"></div>
+                                <div className="opacity-0 group-hover/insert:opacity-100 transform translate-y-4 group-hover/insert:translate-y-0 transition-all duration-300 flex items-center gap-2 bg-background border border-primary text-primary px-4 py-2 rounded-full shadow-lg z-20">
+                                    <span className="material-symbols-outlined text-lg font-bold">add</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider">Insert Task Here</span>
                                 </div>
                             </div>
 
                             <div 
                                 draggable
-                                onDragStart={(e) => handleDragStart(e, index, task.id)}
-                                onDragEnter={(e) => handleDragEnter(e, index)}
+                                onDragStart={(e) => handleDragStart(e, task)}
+                                onDragEnter={(e) => handleDragEnter(e, task)}
                                 onDragEnd={handleDragEnd}
-                                className={`group relative flex flex-col rounded-2xl border transition-all shadow-sm overflow-hidden mb-5 select-none
+                                onDragOver={handleDragOver}
+                                className={`group relative flex flex-col rounded-2xl border transition-all duration-300 shadow-sm overflow-hidden mb-4 select-none
                                     ${isActive ? 'bg-card border-primary ring-1 ring-primary' : (isPriority ? 'border-red-200 dark:border-red-900/50 hover:border-red-300' : 'bg-card border-border hover:border-primary/50')}
                                     ${isPriority ? 'bg-red-50/50 dark:bg-red-900/10' : 'bg-card'}
-                                    ${isDragging ? 'opacity-50 scale-[0.98]' : 'opacity-100'}
+                                    ${isDragging ? 'opacity-20 scale-[0.98] ring-2 ring-primary border-transparent' : 'opacity-100'}
+                                    hover:shadow-md
                                 `}
                             >
                             {/* Task Main Row */}
@@ -265,8 +322,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                                         
                                         {/* Drag Handle */}
                                         <div 
-                                            className="p-2 cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-foreground"
-                                            onClick={e => e.stopPropagation()}
+                                            className="p-2 cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-foreground transition-colors rounded-lg hover:bg-secondary"
+                                            onMouseDown={e => e.stopPropagation()} 
+                                            // onMouseDown stops click propagation to prevent accordion toggle when dragging starts
                                         >
                                             <span className="material-symbols-outlined">drag_indicator</span>
                                         </div>
@@ -350,6 +408,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                         </div>
                     );
                     })
+                )}
+                
+                {/* Insert Zone at Bottom */}
+                {sortedTasks.length > 0 && (
+                    <div 
+                        className="group/insert relative w-full h-2 hover:h-16 transition-all duration-300 ease-out flex items-center justify-center -my-1 z-10 cursor-pointer overflow-hidden mb-8"
+                        onClick={() => openTaskModal(sortedTasks.length)}
+                    >
+                        <div className="w-full h-px bg-primary/10 group-hover/insert:bg-primary/50 transition-colors absolute"></div>
+                        <div className="opacity-0 group-hover/insert:opacity-100 transform translate-y-4 group-hover/insert:translate-y-0 transition-all duration-300 flex items-center gap-2 bg-background border border-primary text-primary px-4 py-2 rounded-full shadow-lg z-20">
+                            <span className="material-symbols-outlined text-lg font-bold">add</span>
+                            <span className="text-xs font-bold uppercase tracking-wider">Add Last Task</span>
+                        </div>
+                    </div>
                 )}
             </div>
         </section>

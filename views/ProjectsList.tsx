@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Project, Task, InboxTask } from '../types';
 import { formatDuration } from '../utils';
 import { Modal } from '../components/Modal';
@@ -8,11 +8,12 @@ interface ProjectsListProps {
   projects: Project[];
   tasks: Task[];
   inboxTasks: InboxTask[];
-  onAddInboxTask: (title: string) => void;
+  onAddInboxTask: (title: string, order?: number) => void;
   onToggleInboxTask: (id: string) => void;
   onSelectProject: (id: string) => void;
   onDeleteProjects: (ids: string[]) => void;
   onAddProject: (project: Project) => void;
+  onReorderInboxTasks: (tasks: InboxTask[]) => void;
 }
 
 export const ProjectsList: React.FC<ProjectsListProps> = ({ 
@@ -23,7 +24,8 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
     onToggleInboxTask,
     onSelectProject, 
     onDeleteProjects,
-    onAddProject
+    onAddProject,
+    onReorderInboxTasks
 }) => {
   const [inboxInput, setInboxInput] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
@@ -36,6 +38,16 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
   const [newProjectColor, setNewProjectColor] = useState('bg-blue-500');
   const [newProjectIcon, setNewProjectIcon] = useState('folder');
 
+  // Inbox Local State for Sorting
+  const [sortedInbox, setSortedInbox] = useState<InboxTask[]>([]);
+  
+  // Drag State
+  const [draggedItem, setDraggedItem] = useState<InboxTask | null>(null);
+
+  useEffect(() => {
+      setSortedInbox([...inboxTasks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+  }, [inboxTasks]);
+
   // Confirmation Modal State
   const [modalConfig, setModalConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void, variant?: 'default' | 'destructive'}>({
     isOpen: false, title: '', message: '', onConfirm: () => {}
@@ -47,9 +59,37 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
   const handleAddInboxTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (inboxInput.trim()) {
-        onAddInboxTask(inboxInput);
+        const order = sortedInbox.length > 0 ? (sortedInbox[sortedInbox.length - 1].order ?? Date.now()) + 1000 : Date.now();
+        onAddInboxTask(inboxInput, order);
         setInboxInput('');
     }
+  };
+
+  // Drag Handlers for Inbox
+  const handleDragStart = (e: React.DragEvent, task: InboxTask) => {
+      setDraggedItem(task);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData("text/html", task.id);
+  };
+
+  const handleDragEnter = (e: React.DragEvent, targetTask: InboxTask) => {
+      e.preventDefault();
+      if (!draggedItem || draggedItem.id === targetTask.id) return;
+
+      const currentList = [...sortedInbox];
+      const draggedIndex = currentList.findIndex(t => t.id === draggedItem.id);
+      const targetIndex = currentList.findIndex(t => t.id === targetTask.id);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+          currentList.splice(draggedIndex, 1);
+          currentList.splice(targetIndex, 0, draggedItem);
+          setSortedInbox(currentList);
+      }
+  };
+
+  const handleDragEnd = () => {
+      setDraggedItem(null);
+      onReorderInboxTasks(sortedInbox);
   };
 
   const toggleProjectSelection = (id: string) => {
@@ -268,24 +308,42 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
                             </button>
                         </form>
 
-                        <div className="flex flex-col gap-2">
-                            {inboxTasks.length === 0 ? (
+                        <div className="flex flex-col gap-0">
+                            {sortedInbox.length === 0 ? (
                                 <div className="text-center py-6 text-muted-foreground italic text-sm">No quick tasks.</div>
                             ) : (
-                                inboxTasks.map(task => (
+                                sortedInbox.map(task => {
+                                    const isDragging = draggedItem?.id === task.id;
+                                    return (
                                     <div 
                                         key={task.id} 
-                                        className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-500 ${task.completed ? 'opacity-0 h-0 overflow-hidden m-0 p-0' : 'hover:bg-secondary/30'}`}
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, task)}
+                                        onDragEnter={(e) => handleDragEnter(e, task)}
+                                        onDragEnd={handleDragEnd}
+                                        onDragOver={e => e.preventDefault()}
+                                        className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 border border-transparent 
+                                            ${task.completed ? 'opacity-0 h-0 overflow-hidden m-0 p-0' : 'hover:bg-secondary/30 hover:border-border'}
+                                            ${isDragging ? 'opacity-50 scale-[0.99] bg-secondary/50' : ''}
+                                        `}
                                     >
                                         <button 
                                             onClick={() => onToggleInboxTask(task.id)}
-                                            className={`size-6 rounded-lg border-2 flex items-center justify-center transition-colors ${task.completed ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}
+                                            className={`size-6 rounded-lg border-2 flex items-center justify-center transition-colors cursor-pointer ${task.completed ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary'}`}
                                         >
-                                            {task.completed && <span className="material-symbols-outlined text-sm text-primary-foreground">check</span>}
+                                            {task.completed && <span className="material-symbols-outlined text-sm text-primary-foreground font-bold">check</span>}
                                         </button>
-                                        <span className={`text-sm font-bold ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{task.title}</span>
+                                        <span className={`text-sm font-bold flex-1 ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                                            {task.title}
+                                        </span>
+                                        <div 
+                                            className="p-1.5 text-muted-foreground/30 hover:text-foreground cursor-grab active:cursor-grabbing"
+                                            onMouseDown={e => e.stopPropagation()}
+                                        >
+                                            <span className="material-symbols-outlined text-lg">drag_indicator</span>
+                                        </div>
                                     </div>
-                                ))
+                                )})
                             )}
                         </div>
                     </div>

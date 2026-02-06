@@ -9,6 +9,7 @@ import { formatDuration } from '../utils';
 interface AnalyticsProps {
   goals: Goal[];
   dailyTarget: number;
+  dailyProgress: number; // Added prop
   onUpdateGoal: (id: string, newTarget: number) => void;
   onUpdateDailyTarget: (newTarget: number) => void;
   onNavigateToHistory: () => void;
@@ -17,15 +18,15 @@ interface AnalyticsProps {
 export const Analytics: React.FC<AnalyticsProps> = ({ 
     goals, 
     dailyTarget, 
+    dailyProgress, // Destructure prop
     onUpdateGoal, 
     onUpdateDailyTarget, 
     onNavigateToHistory 
 }) => {
   const [isAdjusting, setIsAdjusting] = useState(false);
 
-  // Mock daily progress
-  const dailyProgressSeconds = 21600; // 6 hours
-  const dailyPercent = Math.min(100, (dailyProgressSeconds / dailyTarget) * 100);
+  // Use real data passed from App
+  const dailyPercent = Math.min(100, (dailyProgress / dailyTarget) * 100);
 
   // Helper to calculate remaining time
   const getRemainingTime = (target: number, current: number) => {
@@ -65,12 +66,12 @@ export const Analytics: React.FC<AnalyticsProps> = ({
                         
                         <div className="text-center w-full">
                             <span className="text-xs font-bold uppercase text-muted-foreground">Daily</span>
-                            <div className="text-3xl font-bold mt-1 tracking-tight">{formatDuration(dailyProgressSeconds)}</div>
+                            <div className="text-3xl font-bold mt-1 tracking-tight">{formatDuration(dailyProgress)}</div>
                             <div className="text-xs text-muted-foreground font-bold mt-1">Target: {formatDuration(dailyTarget)}</div>
                             
                             <div className="mt-4 px-3 py-2 bg-secondary/50 rounded-xl">
                             <p className="text-xs font-bold text-foreground">
-                                {getRemainingTime(dailyTarget, dailyProgressSeconds)} left
+                                {getRemainingTime(dailyTarget, dailyProgress)} left
                             </p>
                             </div>
                         </div>
@@ -136,7 +137,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({
                              <tr>
                                  <td className="px-5 py-3 font-bold">Daily</td>
                                  <td className="px-5 py-3 text-right font-mono text-muted-foreground">{formatDuration(dailyTarget)}</td>
-                                 <td className="px-5 py-3 text-right font-mono font-bold">{formatDuration(dailyProgressSeconds)}</td>
+                                 <td className="px-5 py-3 text-right font-mono font-bold">{formatDuration(dailyProgress)}</td>
                              </tr>
                              {goals.map(g => (
                                  <tr key={g.id}>

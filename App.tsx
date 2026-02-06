@@ -370,9 +370,14 @@ function App() {
   useEffect(() => {
     if (projects.length > 0) {
         const totalToday = projects.reduce((acc, curr) => acc + (curr.stats?.today || 0), 0);
+        const totalWeek = projects.reduce((acc, curr) => acc + (curr.stats?.week || 0), 0);
+        const totalMonth = projects.reduce((acc, curr) => acc + (curr.stats?.month || 0), 0);
+        
         setDailyProgress(totalToday);
+        
         setGoals(prev => prev.map(g => {
-            if (g.id === 'daily') return { ...g, currentSeconds: totalToday };
+            if (g.period === 'weekly') return { ...g, currentSeconds: totalWeek };
+            if (g.period === 'monthly') return { ...g, currentSeconds: totalMonth };
             return g;
         }));
     }
@@ -609,7 +614,7 @@ function App() {
   const renderView = () => {
     switch (activeView) {
       case 'dashboard': return <Dashboard timerState={timerState} goals={goals} dailyGoalTarget={dailyGoalTarget} dailyProgress={dailyProgress} recentTasks={tasks.slice(0, 3)} allTasks={tasks} projects={projects} reminders={reminders} inboxTasks={inboxTasks} onToggleTimer={toggleTimer} onNavigateToTask={(projectId) => navigateToProject(projectId)} onAddTask={addTask} onAddInboxTask={addInboxTask} onToggleInboxTask={toggleInboxTask} onNavigateToHistory={navigateToActivityHistory} onToggleSubtask={toggleSubtask} />;
-      case 'analytics': return <Analytics goals={goals} dailyTarget={dailyGoalTarget} onUpdateGoal={updateGoal} onUpdateDailyTarget={updateDailyTarget} onNavigateToHistory={navigateToActivityHistory} />;
+      case 'analytics': return <Analytics goals={goals} dailyTarget={dailyGoalTarget} dailyProgress={dailyProgress} onUpdateGoal={updateGoal} onUpdateDailyTarget={updateDailyTarget} onNavigateToHistory={navigateToActivityHistory} />;
       case 'projects-list': return <ProjectsList projects={projects} tasks={tasks} inboxTasks={inboxTasks} onAddInboxTask={addInboxTask} onToggleInboxTask={toggleInboxTask} onSelectProject={navigateToProject} onDeleteProjects={deleteProjects} onAddProject={addProject} />;
       case 'settings': return <Settings isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} onNavigateToHelp={navigateToHelpSupport} onSignOut={handleSignOut} userProfile={userProfile} onUpdateProfile={updateUserProfile} />;
       case 'reminders': return <Reminders reminders={reminders} onAddReminder={addReminder} onToggleReminder={toggleReminder} />;

@@ -702,7 +702,7 @@ function App() {
         
         <div className="flex-1 w-full pb-20">
           {renderView()}
-          <div className="w-full text-center py-8 text-[10px] font-bold text-muted-foreground/30 uppercase tracking-[0.2em] select-none">Michael Fan made this</div>
+          <div className="w-full text-center py-8 text-[10px] font-bold text-muted-foreground/30 uppercase tracking-[0.2em] select-none">Designed and developed by Michael Fan</div>
         </div>
 
         {/* Bottom Navigation */}

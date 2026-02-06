@@ -1,27 +1,27 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 // --- FIREBASE IMPORTS ---
-import { db } from './firebase'; 
-// ADDED: GoogleAuthProvider and signInWithPopup
+import { db, auth } from './firebase'; 
 import { 
-  getAuth, 
+  onAuthStateChanged, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut, 
-  onAuthStateChanged, 
-  User,
-  GoogleAuthProvider,
-  signInWithPopup
+  GoogleAuthProvider, 
+  signInWithPopup,
+  User
 } from 'firebase/auth';
 import { 
   collection, 
-  onSnapshot, 
-  setDoc, 
   doc, 
+  setDoc, 
   updateDoc, 
   deleteDoc, 
+  onSnapshot, 
   increment, 
-  getDoc, 
-  writeBatch 
+  arrayUnion, 
+  writeBatch,
+  getDoc 
 } from 'firebase/firestore';
 
 // --- VIEW IMPORTS ---
@@ -34,7 +34,7 @@ import { Reminders } from './views/Reminders';
 import { ActivityHistory } from './views/ActivityHistory';
 import { HelpSupport } from './views/HelpSupport';
 import { INITIAL_PROJECTS, INITIAL_GOALS, INITIAL_REMINDERS } from './constants';
-import { TimerState, Task, Project, Goal, Reminder, InboxTask, UserProfile } from './types';
+import { TimerState, Task, Project, Goal, Reminder, InboxTask, UserProfile, TimeSession } from './types';
 
 // --- HELPER: Get ISO Week Number ---
 const getWeekNumber = (d: Date) => {
@@ -53,7 +53,6 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const auth = getAuth();
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,14 +68,12 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
 
     try {
       if (isSignUp) {
-        // checks if email is already in use by default in firebase
         await createUserWithEmailAndPassword(auth, email, password);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (err: any) {
       let msg = err.message;
-      // Handle specific Firebase errors for better UX
       if (err.code === 'auth/email-already-in-use') {
           msg = "This email is already registered. Please sign in.";
       } else if (err.code === 'auth/weak-password') {
@@ -114,7 +111,6 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
         </div>
 
         <div className="space-y-4">
-            {/* GOOGLE SIGN IN BUTTON */}
             <button 
                 onClick={handleGoogleAuth}
                 disabled={loading}
@@ -222,7 +218,6 @@ function App() {
 
   // --- AUTH LISTENER ---
   useEffect(() => {
-    const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthLoading(false);
@@ -247,11 +242,12 @@ function App() {
     if (!user || !db) return;
     
     // Listen to User Preferences
-    const prefUnsubscribe = onSnapshot(doc(db, "users", user.uid, "settings", "user_preferences"), (doc) => {
-        if (doc.exists()) {
-            const data = doc.data();
-            if (data.dailyGoalTarget) setDailyGoalTarget(data.dailyGoalTarget);
-            if (data.isDarkMode !== undefined) setIsDarkMode(data.isDarkMode);
+    const prefRef = doc(db, "users", user.uid, "settings", "user_preferences");
+    const prefUnsubscribe = onSnapshot(prefRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data?.dailyGoalTarget) setDailyGoalTarget(data.dailyGoalTarget);
+            if (data?.isDarkMode !== undefined) setIsDarkMode(data.isDarkMode);
         }
     });
 
@@ -266,7 +262,7 @@ function App() {
                 name: user.displayName || 'New User',
                 email: user.email || '',
                 // Use Google Photo if available, otherwise a placeholder
-                avatar: user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName ? encodeURIComponent(user.displayName) : 'User'}&background=random`
+                avatar: user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName ? encodeURIComponent(user.displayName || '') : 'User'}&background=random`
             };
             await setDoc(profileRef, newProfile);
         }
@@ -281,7 +277,8 @@ function App() {
   // Listen for Tasks
   useEffect(() => {
     if (!user || !db) return;
-    const unsubscribe = onSnapshot(collection(db, "users", user.uid, "tasks"), (snapshot) => {
+    const q = collection(db, "users", user.uid, "tasks");
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const loadedTasks = snapshot.docs.map(doc => doc.data() as Task);
       setTasks(loadedTasks);
     });
@@ -291,7 +288,8 @@ function App() {
   // Listen for Inbox
   useEffect(() => {
     if (!user || !db) return;
-    const unsubscribe = onSnapshot(collection(db, "users", user.uid, "inbox"), (snapshot) => {
+    const q = collection(db, "users", user.uid, "inbox");
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const loadedInbox = snapshot.docs.map(doc => doc.data() as InboxTask);
       setInboxTasks(loadedInbox);
     });
@@ -301,7 +299,8 @@ function App() {
   // Listen for Projects & Handle Resets
   useEffect(() => {
     if (!user || !db) return;
-    const unsubscribe = onSnapshot(collection(db, "users", user.uid, "projects"), async (snapshot) => {
+    const q = collection(db, "users", user.uid, "projects");
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
       const loadedProjects = snapshot.docs.map(doc => doc.data() as Project);
       
       // --- RESET LOGIC ---
@@ -441,7 +440,8 @@ function App() {
     // Persist to DB
     if (user && db) {
       try {
-        await setDoc(doc(db, "users", user.uid, "settings", "user_preferences"), { isDarkMode: newMode }, { merge: true });
+        const prefRef = doc(db, "users", user.uid, "settings", "user_preferences");
+        await setDoc(prefRef, { isDarkMode: newMode }, { merge: true });
       } catch (error) {
         console.error("Error saving theme preference:", error);
       }
@@ -461,17 +461,29 @@ function App() {
 
         if (secondsElapsed > 0 && db) {
             try {
+                // Create Session Object
+                const session: TimeSession = {
+                  id: `s-${now}`,
+                  startTime: startTime!,
+                  endTime: now,
+                  duration: secondsElapsed
+                };
+
                 if (timerState.activeTaskId) {
                     const taskRef = doc(db, "users", user.uid, "tasks", timerState.activeTaskId);
-                    updateDoc(taskRef, { totalTime: increment(secondsElapsed) });
+                    await updateDoc(taskRef, { 
+                      totalTime: increment(secondsElapsed),
+                      sessions: arrayUnion(session)
+                    });
                 }
                 if (timerState.activeProjectId) {
                     const projectRef = doc(db, "users", user.uid, "projects", timerState.activeProjectId);
-                    updateDoc(projectRef, { 
+                    await updateDoc(projectRef, { 
                         totalTime: increment(secondsElapsed),
                         "stats.today": increment(secondsElapsed),
                         "stats.week": increment(secondsElapsed),
-                        "stats.month": increment(secondsElapsed)
+                        "stats.month": increment(secondsElapsed),
+                        sessions: arrayUnion(session)
                     });
                 }
             } catch (error) { console.error("Error saving timer:", error); }
@@ -535,7 +547,18 @@ function App() {
 
   const updateTask = async (updatedTask: Task) => {
     if (!user || !db) return;
-    await setDoc(doc(db, "users", user.uid, "tasks", updatedTask.id), updatedTask);
+    // Handle status changes for completedAt
+    if (updatedTask.status === 'completed' && !updatedTask.completedAt) {
+      updatedTask.completedAt = new Date().toISOString();
+    } else if (updatedTask.status !== 'completed') {
+      updatedTask.completedAt = undefined;
+    }
+    
+    // Clean object before sending (Firestore doesn't like undefined)
+    const dataToSave: any = { ...updatedTask };
+    if (!dataToSave.completedAt) delete dataToSave.completedAt;
+
+    await setDoc(doc(db, "users", user.uid, "tasks", updatedTask.id), dataToSave);
   };
 
   const toggleSubtask = async (taskId: string, subtaskId: string) => {
@@ -543,8 +566,7 @@ function App() {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
     const newSubtasks = task.subtasks?.map(st => st.id === subtaskId ? { ...st, completed: !st.completed } : st);
-    const taskRef = doc(db, "users", user.uid, "tasks", taskId);
-    await updateDoc(taskRef, { subtasks: newSubtasks });
+    await updateDoc(doc(db, "users", user.uid, "tasks", taskId), { subtasks: newSubtasks });
   };
 
   const addInboxTask = async (title: string, order?: number) => {
@@ -557,8 +579,16 @@ function App() {
     if (!user || !db) return;
     const task = inboxTasks.find(t => t.id === id);
     if (!task) return;
-    const taskRef = doc(db, "users", user.uid, "inbox", id);
-    await updateDoc(taskRef, { completed: !task.completed });
+    const newCompleted = !task.completed;
+    
+    const updates: any = { completed: newCompleted };
+    if (newCompleted) {
+        updates.completedAt = new Date().toISOString();
+    } else {
+        updates.completedAt = null; 
+    }
+
+    await updateDoc(doc(db, "users", user.uid, "inbox", id), updates);
   };
 
   const addProject = async (project: Project) => {
@@ -586,7 +616,8 @@ function App() {
   const updateDailyTarget = async (newTarget: number) => {
      if (!user || !db) return;
      setDailyGoalTarget(newTarget); 
-     await setDoc(doc(db, "users", user.uid, "settings", "user_preferences"), { dailyGoalTarget: newTarget }, { merge: true });
+     const prefRef = doc(db, "users", user.uid, "settings", "user_preferences");
+     await setDoc(prefRef, { dailyGoalTarget: newTarget }, { merge: true });
   };
 
   const updateGoal = (id: string, newTarget: number) => {
@@ -605,7 +636,6 @@ function App() {
   };
 
   const handleSignOut = async () => {
-    const auth = getAuth();
     try {
       // Clear all local state immediately which triggers "AuthScreen" render (redirect)
       setUser(null);

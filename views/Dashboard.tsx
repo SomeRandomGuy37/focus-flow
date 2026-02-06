@@ -66,13 +66,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     : (selectedProjectDetails?.totalTime || 0);
 
   // Combine recently completed tasks from Projects and Inbox
-  const completedProjectTasks = allTasks.filter(t => t.status === 'completed');
-  const completedInboxTasks = inboxTasks.filter(t => t.completed);
+  const completedProjectTasks = allTasks.filter(t => t.status === 'completed' && t.completedAt);
+  const completedInboxTasks = inboxTasks.filter(t => t.completed && t.completedAt);
   
-  // Priority Tasks
-  const priorityTasks = allTasks.filter(t => t.isPriority && t.status !== 'completed');
-  
-  // Create a unified list for "Recent Activity"
+  // Create a unified list for "Recent Activity", sort by completedAt desc
   const recentActivityList = [
       ...completedProjectTasks.map(t => ({ 
           id: t.id, 
@@ -81,7 +78,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
           time: t.totalTime,
           type: 'project',
           projectId: t.projectId,
-          icon: projects.find(p => p.id === t.projectId)?.icon || 'assignment'
+          icon: projects.find(p => p.id === t.projectId)?.icon || 'assignment',
+          completedAt: t.completedAt!
       })),
       ...completedInboxTasks.map(t => ({
           id: t.id,
@@ -90,13 +88,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
           time: 0,
           type: 'inbox',
           projectId: '',
-          icon: 'inbox'
+          icon: 'inbox',
+          completedAt: t.completedAt!
       }))
   ]
-  // In a real app we'd sort by completedAt timestamp, here we just slice
-  .slice(0, 5);
+  .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+  .slice(0, 3); // STRICT CAP AT 3
 
+  // Extract recent sessions from all tasks and projects to show "Tracked Contributions"
+  const recentSessions = allTasks.flatMap(t => t.sessions ? t.sessions.map(s => ({...s, title: t.title, type: 'Task'})) : [])
+    .concat(projects.flatMap(p => p.sessions ? p.sessions.map(s => ({...s, title: p.name, type: 'Project'})) : []))
+    .sort((a,b) => b.endTime - a.endTime)
+    .slice(0, 3);
 
+  // Priority Tasks
+  const priorityTasks = allTasks.filter(t => t.isPriority && t.status !== 'completed');
+  
   const handleInboxSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inboxInput.trim()) {
@@ -193,24 +200,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
 
-            {/* Recent Tasks (Desktop: Below Timer) */}
+            {/* Recent Activity (Desktop: Below Timer) */}
             <div className="flex flex-col gap-4">
                 <div className="flex items-end justify-between px-1">
                     <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Recent Activity</h2>
                     <button onClick={onNavigateToHistory} className="text-[10px] font-bold uppercase tracking-wider text-primary hover:underline">See All</button>
                 </div>
                 
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 min-h-[100px]">
                 {recentActivityList.length === 0 && (
                      <div className="p-6 bg-card border border-border border-dashed rounded-2xl text-center text-muted-foreground text-sm">
-                         No completed tasks yet.
+                         No completed tasks recently.
                      </div>
                 )}
                 {recentActivityList.map(task => (
                     <div 
                     key={task.id}
                     onClick={() => task.type === 'project' && onNavigateToTask(task.projectId)}
-                    className={`group flex items-center justify-between p-4 pr-6 bg-card rounded-[1.25rem] border border-border hover:border-primary/40 hover:shadow-md transition-all ${task.type === 'project' ? 'cursor-pointer' : 'cursor-default'}`}
+                    className={`group flex items-center justify-between p-4 pr-6 bg-card rounded-[1.25rem] border border-border hover:border-primary/40 hover:shadow-md transition-all animate-in slide-in-from-bottom-2 duration-300 ${task.type === 'project' ? 'cursor-pointer' : 'cursor-default'}`}
                     >
                     <div className="flex items-center gap-5">
                         <div className="size-14 rounded-2xl bg-secondary border border-border/50 flex items-center justify-center text-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
@@ -272,6 +279,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
                              </div>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {/* Tracked Contributions (Recent Sessions) */}
+            {recentSessions.length > 0 && (
+                <div className="flex flex-col gap-4 animate-in slide-in-from-right-4 duration-500 delay-100">
+                     <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">Tracked Contributions</h2>
+                     <div className="flex flex-col gap-3 bg-card border border-border rounded-[2rem] p-5 shadow-sm">
+                         {recentSessions.map(session => (
+                             <div key={session.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 last:pb-0 first:pt-0">
+                                 <div>
+                                     <p className="font-bold text-sm">{session.title}</p>
+                                     <p className="text-[10px] text-muted-foreground font-medium">
+                                        {new Date(session.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {new Date(session.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                     </p>
+                                 </div>
+                                 <div className="px-2 py-1 bg-secondary rounded-md text-xs font-mono font-bold">
+                                     +{formatDuration(session.duration)}
+                                 </div>
+                             </div>
+                         ))}
+                     </div>
                 </div>
             )}
 
@@ -393,7 +422,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             onClick={() => onToggleInboxTask(task.id)}
                                             className={`size-6 rounded-lg border-2 flex items-center justify-center transition-colors cursor-pointer ${task.completed ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary'}`}
                                         >
-                                            {task.completed && <span className="material-symbols-outlined text-sm text-primary-foreground">check</span>}
+                                            {task.completed && <span className="material-symbols-outlined text-sm text-primary-foreground font-bold">check</span>}
                                         </button>
                                         <span className={`text-sm font-bold truncate flex-1 ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                                             {task.title}

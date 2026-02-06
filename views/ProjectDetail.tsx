@@ -5,6 +5,7 @@ import { TimerDisplay } from '../components/TimerDisplay';
 import { ProgressRing } from '../components/ProgressRing';
 import { formatDuration } from '../utils';
 import { Modal } from '../components/Modal';
+import { DatePicker } from '../components/DatePicker';
 
 interface ProjectDetailProps {
   project: Project;
@@ -34,6 +35,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
   
   // New Task Form State
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -42,17 +44,25 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [newTaskPriority, setNewTaskPriority] = useState(false);
   const [newTaskInsertIndex, setNewTaskInsertIndex] = useState<number | null>(null);
   
+  // Custom Date Picker State for Task Editing
+  const [activeDatePickerTaskId, setActiveDatePickerTaskId] = useState<string | null>(null);
+  const [isNewTaskDatePickerOpen, setIsNewTaskDatePickerOpen] = useState(false);
+
   // Sort tasks by order initially
-  const [sortedTasks, setSortedTasks] = useState<Task[]>([]);
+  const [activeTasks, setActiveTasks] = useState<Task[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
   
   // Drag and Drop State
   const [draggedItem, setDraggedItem] = useState<Task | null>(null);
   const dragOverItemRef = useRef<Task | null>(null);
 
   useEffect(() => {
-      // Sort tasks by 'order' property if it exists, otherwise by index or ID
-      const sorted = [...tasks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-      setSortedTasks(sorted);
+      // Split and sort tasks
+      const active = tasks.filter(t => t.status !== 'completed').sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const completed = tasks.filter(t => t.status === 'completed').sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+      
+      setActiveTasks(active);
+      setCompletedTasks(completed);
   }, [tasks]);
 
   // Stats
@@ -69,19 +79,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     if (newTaskTitle.trim()) {
         // Calculate appropriate order
         let order = Date.now();
-        if (newTaskInsertIndex !== null && sortedTasks.length > 0) {
+        if (newTaskInsertIndex !== null && activeTasks.length > 0) {
             // Insert at start
             if (newTaskInsertIndex === 0) {
-                order = (sortedTasks[0].order ?? Date.now()) - 1000;
+                order = (activeTasks[0].order ?? Date.now()) - 1000;
             } 
             // Insert at end
-            else if (newTaskInsertIndex >= sortedTasks.length) {
-                order = (sortedTasks[sortedTasks.length - 1].order ?? Date.now()) + 1000;
+            else if (newTaskInsertIndex >= activeTasks.length) {
+                order = (activeTasks[activeTasks.length - 1].order ?? Date.now()) + 1000;
             }
             // Insert between
             else {
-                const prev = sortedTasks[newTaskInsertIndex - 1].order ?? 0;
-                const next = sortedTasks[newTaskInsertIndex].order ?? 0;
+                const prev = activeTasks[newTaskInsertIndex - 1].order ?? 0;
+                const next = activeTasks[newTaskInsertIndex].order ?? 0;
                 order = (prev + next) / 2;
             }
         }
@@ -152,17 +162,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
     setDraggedItem(task);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData("text/html", task.id); // Required for Firefox
-    
-    // Create a ghost image if needed, or rely on browser default.
-    // Browser default usually works well for cards.
   };
 
   const handleDragEnter = (e: React.DragEvent, targetTask: Task) => {
       e.preventDefault();
       if (!draggedItem || draggedItem.id === targetTask.id) return;
+      // Only reorder within active tasks
+      if (targetTask.status === 'completed') return;
 
-      // Swap in local state immediately to create "magnetic" effect
-      const currentList = [...sortedTasks];
+      const currentList = [...activeTasks];
       const draggedIndex = currentList.findIndex(t => t.id === draggedItem.id);
       const targetIndex = currentList.findIndex(t => t.id === targetTask.id);
 
@@ -171,15 +179,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
           currentList.splice(draggedIndex, 1);
           // Insert at target index
           currentList.splice(targetIndex, 0, draggedItem);
-          setSortedTasks(currentList);
+          setActiveTasks(currentList);
       }
   };
 
   const handleDragEnd = () => {
     setDraggedItem(null);
     dragOverItemRef.current = null;
-    // Commit changes to global state/database
-    onReorderTasks(sortedTasks);
+    onReorderTasks(activeTasks);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -223,10 +230,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-3">
                     <h3 className="text-xl font-bold tracking-tight">Active Tasks</h3>
-                    <span className="bg-secondary text-foreground text-xs font-bold px-2.5 py-1 rounded-lg">{tasks.length}</span>
+                    <span className="bg-secondary text-foreground text-xs font-bold px-2.5 py-1 rounded-lg">{activeTasks.length}</span>
                 </div>
                 <button 
-                    onClick={() => openTaskModal(sortedTasks.length)}
+                    onClick={() => openTaskModal(activeTasks.length)}
                     className="flex items-center gap-1.5 text-primary hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors"
                 >
                     <span className="material-symbols-outlined text-lg">add_task</span>
@@ -234,28 +241,29 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 </button>
             </div>
             
-            <div className="flex flex-col gap-0">
-                {sortedTasks.length === 0 ? (
+            <div className="flex flex-col gap-0 min-h-[100px]">
+                {activeTasks.length === 0 && (
                     <div 
                         onClick={() => openTaskModal(0)}
-                        className="p-8 text-center text-muted-foreground border border-dashed border-border rounded-2xl bg-secondary/5 hover:bg-secondary/20 hover:border-primary/50 hover:text-primary transition-all cursor-pointer group"
+                        className="p-8 text-center text-muted-foreground border border-dashed border-border rounded-2xl bg-secondary/5 hover:bg-secondary/20 hover:border-primary/50 hover:text-primary transition-all cursor-pointer group mb-4"
                     >
                         <div className="bg-background size-14 rounded-full mx-auto mb-3 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined text-3xl opacity-50 group-hover:opacity-100">add</span>
                         </div>
-                        <p className="text-sm font-bold">No tasks yet.</p>
-                        <p className="text-xs mt-1">Click to create your first task.</p>
+                        <p className="text-sm font-bold">No active tasks.</p>
+                        <p className="text-xs mt-1">Click to create a task.</p>
                     </div>
-                ) : (
-                    sortedTasks.map((task, index) => {
+                )}
+
+                {activeTasks.map((task, index) => {
                     const isActive = timerState.activeTaskId === task.id;
                     const isExpanded = expandedTaskId === task.id;
                     const isDragging = draggedItem?.id === task.id;
                     const isPriority = task.isPriority;
                     
                     return (
-                        <div key={task.id} className="transition-all duration-300 ease-out">
-                            {/* Insert Zone (Slide in) - Enhanced Area */}
+                        <div key={task.id} className="transition-all duration-500 ease-in-out">
+                            {/* Insert Zone (Slide in) */}
                             <div 
                                 className="group/insert relative w-full h-2 hover:h-16 transition-all duration-300 ease-out flex items-center justify-center -my-1 z-10 cursor-pointer overflow-hidden"
                                 onClick={() => openTaskModal(index)}
@@ -286,13 +294,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                                     <div className="flex gap-4 items-start flex-1">
                                         <button 
                                             onClick={(e) => handleTaskCompletion(e, task)}
-                                            className={`mt-1 shrink-0 size-7 rounded-full flex items-center justify-center transition-all duration-300 ${task.status === 'completed' ? 'bg-green-500 text-white shadow-md scale-105' : 'border-2 border-muted-foreground/30 text-transparent hover:border-green-500/50 hover:bg-green-500/10'}`}
+                                            className={`mt-1 shrink-0 size-7 rounded-full flex items-center justify-center transition-all duration-300 border-2 border-muted-foreground/30 text-transparent hover:border-green-500/50 hover:bg-green-500/10`}
                                         >
                                             <span className="material-symbols-outlined text-base font-bold">check</span>
                                         </button>
                                         <div className="flex flex-col gap-1">
                                             <div className="flex items-center gap-2">
-                                                <h4 className={`font-bold text-lg leading-tight transition-all ${task.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>{task.title}</h4>
+                                                <h4 className="font-bold text-lg leading-tight transition-all">{task.title}</h4>
                                                 {isPriority && (
                                                     <span className="material-symbols-outlined text-red-500 text-base" title="High Priority">flag</span>
                                                 )}
@@ -300,7 +308,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                                             <div className="flex flex-wrap gap-2 items-center">
                                                 {task.subtitle && <p className="text-muted-foreground text-xs font-bold uppercase tracking-wide">{task.subtitle}</p>}
                                                 {task.dueDate && (
-                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${new Date(task.dueDate) < new Date() && task.status !== 'completed' ? 'bg-red-500/10 text-red-600 border-red-500/20' : 'bg-secondary text-muted-foreground border-transparent'}`}>
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${new Date(task.dueDate) < new Date() ? 'bg-red-500/10 text-red-600 border-red-500/20' : 'bg-secondary text-muted-foreground border-transparent'}`}>
                                                         {new Date(task.dueDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
                                                     </span>
                                                 )}
@@ -319,19 +327,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                                             {isActive ? 'pause' : 'play_arrow'}
                                             </span>
                                         </button>
-                                        
-                                        {/* Drag Handle */}
                                         <div 
                                             className="p-2 cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-foreground transition-colors rounded-lg hover:bg-secondary"
                                             onMouseDown={e => e.stopPropagation()} 
-                                            // onMouseDown stops click propagation to prevent accordion toggle when dragging starts
                                         >
                                             <span className="material-symbols-outlined">drag_indicator</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Active Indicator & Meta */}
                                 <div className="flex items-center justify-between mt-1">
                                     <div className="flex items-center gap-2">
                                         {isActive ? (
@@ -341,11 +345,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                                             </div>
                                         ) : (
                                             <div className="px-3 py-1 rounded-lg border border-border flex items-center gap-1 bg-secondary/30">
-                                            <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-wide">{task.status}</span>
+                                            <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-wide">Active</span>
                                             </div>
                                         )}
                                         
-                                        {/* Priority Toggle Button */}
                                         <button 
                                             onClick={(e) => handleTaskPriority(e, task)}
                                             className={`px-3 py-1 rounded-lg border flex items-center gap-1 transition-colors ${isPriority ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400' : 'border-transparent hover:bg-secondary text-muted-foreground hover:text-foreground'}`}
@@ -373,25 +376,22 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                                 <>
                                 <div className="h-px w-full bg-border"></div>
                                 <div className="p-6 flex flex-col gap-8 bg-secondary/10 animate-in slide-in-from-top-2 duration-300">
-                                    
-                                    {/* Schedule (Task Due Date) */}
                                     <div className="flex flex-col gap-3">
                                         <h5 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Schedule</h5>
-                                        <div className="flex items-center gap-4 p-3 bg-background border border-border rounded-xl shadow-sm">
+                                        <div 
+                                            className="flex items-center gap-4 p-3 bg-background border border-border rounded-xl shadow-sm cursor-pointer hover:border-primary transition-colors"
+                                            onClick={() => setActiveDatePickerTaskId(task.id)}
+                                        >
                                             <div className="flex items-center gap-2 text-muted-foreground">
                                                 <span className="material-symbols-outlined">calendar_month</span>
                                                 <span className="text-sm font-bold">Due Date</span>
                                             </div>
-                                            <input 
-                                                type="date"
-                                                value={task.dueDate || ''}
-                                                onChange={(e) => handleTaskDueDate(task, e.target.value)}
-                                                className="flex-1 bg-transparent text-right font-bold text-sm outline-none cursor-pointer text-foreground"
-                                            />
+                                            <span className="flex-1 text-right font-bold text-sm text-foreground">
+                                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Set Date'}
+                                            </span>
                                         </div>
                                     </div>
 
-                                    {/* Description Editing */}
                                     <div className="flex flex-col gap-3">
                                         <h5 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Notes</h5>
                                         <textarea 
@@ -404,17 +404,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                                 </div>
                                 </>
                             )}
-                            </div>
                         </div>
-                    );
-                    })
-                )}
+                    </div>
+                );
+                })}
                 
                 {/* Insert Zone at Bottom */}
-                {sortedTasks.length > 0 && (
+                {activeTasks.length > 0 && (
                     <div 
                         className="group/insert relative w-full h-2 hover:h-16 transition-all duration-300 ease-out flex items-center justify-center -my-1 z-10 cursor-pointer overflow-hidden mb-8"
-                        onClick={() => openTaskModal(sortedTasks.length)}
+                        onClick={() => openTaskModal(activeTasks.length)}
                     >
                         <div className="w-full h-px bg-primary/10 group-hover/insert:bg-primary/50 transition-colors absolute"></div>
                         <div className="opacity-0 group-hover/insert:opacity-100 transform translate-y-4 group-hover/insert:translate-y-0 transition-all duration-300 flex items-center gap-2 bg-background border border-primary text-primary px-4 py-2 rounded-full shadow-lg z-20">
@@ -424,6 +423,41 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     </div>
                 )}
             </div>
+
+            {/* Completed Tasks Toggle Section */}
+            {completedTasks.length > 0 && (
+                <div className="flex flex-col gap-4 mt-4 animate-in fade-in duration-500">
+                    <button 
+                        onClick={() => setShowCompleted(!showCompleted)}
+                        className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-bold text-xs uppercase tracking-widest w-fit"
+                    >
+                        <span className={`material-symbols-outlined text-lg transition-transform duration-300 ${showCompleted ? 'rotate-180' : ''}`}>expand_more</span>
+                        {completedTasks.length} Completed Tasks
+                    </button>
+                    
+                    {showCompleted && (
+                        <div className="flex flex-col gap-4 animate-in slide-in-from-top-2 duration-300">
+                            {completedTasks.map(task => (
+                                <div key={task.id} className="flex items-center justify-between p-4 bg-secondary/20 border border-border/50 rounded-2xl opacity-60 hover:opacity-100 transition-opacity">
+                                     <div className="flex items-center gap-4">
+                                        <button 
+                                            onClick={(e) => handleTaskCompletion(e, task)}
+                                            className="shrink-0 size-6 rounded-full bg-green-500 text-white flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+                                        >
+                                            <span className="material-symbols-outlined text-sm font-bold">check</span>
+                                        </button>
+                                        <div>
+                                            <h4 className="font-bold text-sm line-through text-muted-foreground">{task.title}</h4>
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">Completed {new Date(task.completedAt || Date.now()).toLocaleDateString()}</p>
+                                        </div>
+                                     </div>
+                                     <span className="text-xs font-mono text-muted-foreground">{formatDuration(task.totalTime)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </section>
 
         {/* RIGHT COLUMN: TIMER & STATS */}
@@ -550,12 +584,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     
                     <div className="flex flex-col gap-2">
                          <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Due Date</label>
-                         <input 
-                            type="date"
-                            className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-1 focus:ring-primary"
-                            value={newTaskDueDate}
-                            onChange={e => setNewTaskDueDate(e.target.value)}
-                         />
+                         <div 
+                            onClick={() => setIsNewTaskDatePickerOpen(true)}
+                            className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-1 focus:ring-primary cursor-pointer flex justify-between items-center"
+                         >
+                            {newTaskDueDate || <span className="text-muted-foreground/50">Select date</span>}
+                            <span className="material-symbols-outlined text-muted-foreground">calendar_today</span>
+                         </div>
                     </div>
 
                     <div className="flex flex-col gap-2">
@@ -589,6 +624,26 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                 </form>
             </div>
           </div>
+      )}
+
+      {/* Date Pickers */}
+      {isNewTaskDatePickerOpen && (
+          <DatePicker 
+             selectedDate={newTaskDueDate}
+             onChange={(d) => setNewTaskDueDate(d)}
+             onClose={() => setIsNewTaskDatePickerOpen(false)}
+          />
+      )}
+
+      {activeDatePickerTaskId && (
+          <DatePicker 
+             selectedDate={activeTasks.find(t => t.id === activeDatePickerTaskId)?.dueDate || ''}
+             onChange={(d) => {
+                 const t = activeTasks.find(task => task.id === activeDatePickerTaskId);
+                 if (t) handleTaskDueDate(t, d);
+             }}
+             onClose={() => setActiveDatePickerTaskId(null)}
+          />
       )}
 
       {/* Reminder Success Modal */}

@@ -36,11 +36,11 @@ export const Analytics: React.FC<AnalyticsProps> = ({
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 pt-8 pb-4 flex items-end justify-between border-b border-border/50 transition-all">
+      {/* Sticky Header - Standardized */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-border/50 transition-all">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-none">Analytics</h1>
-          <p className="text-sm font-semibold text-muted-foreground mt-1.5">Performance & Trends</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-none">Analytics</h1>
+          <p className="text-sm font-semibold text-muted-foreground mt-1">Performance & Trends</p>
         </div>
       </div>
 

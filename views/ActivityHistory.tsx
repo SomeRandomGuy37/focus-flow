@@ -16,14 +16,15 @@ export const ActivityHistory: React.FC<ActivityHistoryProps> = ({ tasks, project
 
   return (
     <div className="animate-in slide-in-from-right-8 duration-500 w-full">
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 pt-8 pb-4 flex items-end justify-between border-b border-border/50">
+      {/* Sticky Header - Standardized */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-border/50 transition-all">
         <div className="flex items-center gap-4">
             <button onClick={onBack} className="p-2 -ml-3 rounded-full hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
                 <span className="material-symbols-outlined text-xl">arrow_back</span>
             </button>
             <div>
                 <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-none">History</h1>
-                <p className="text-sm font-semibold text-muted-foreground mt-1.5">Past Activity</p>
+                <p className="text-sm font-semibold text-muted-foreground mt-1">Past Activity</p>
             </div>
         </div>
       </div>

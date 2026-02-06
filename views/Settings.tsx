@@ -95,11 +95,11 @@ export const Settings: React.FC<SettingsProps> = ({
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
-      {/* Sticky Header - Reduced top padding */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 pt-4 pb-4 flex items-end justify-between border-b border-border/50 transition-all">
+      {/* Sticky Header - Standardized */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-border/50 transition-all">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-none">Settings</h1>
-          <p className="text-sm font-semibold text-muted-foreground mt-1.5">Preferences & Account</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-none">Settings</h1>
+          <p className="text-sm font-semibold text-muted-foreground mt-1">Preferences & Account</p>
         </div>
       </div>
 
@@ -137,9 +137,9 @@ export const Settings: React.FC<SettingsProps> = ({
                       </div>
                       <button 
                         onClick={toggleTheme}
-                        className={`w-14 h-8 rounded-full transition-colors relative flex items-center px-1 ${isDarkMode ? 'bg-primary' : 'bg-secondary border border-border'}`}
+                        className={`w-14 h-8 rounded-full transition-colors relative flex items-center px-1 border ${isDarkMode ? 'bg-primary border-primary' : 'bg-secondary border-border'}`}
                       >
-                          <div className={`size-6 bg-white rounded-full shadow-md transition-transform duration-300 ${isDarkMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                          <div className={`size-6 rounded-full shadow-md transition-transform duration-300 ${isDarkMode ? 'translate-x-6 bg-background' : 'translate-x-0 bg-white'}`}></div>
                       </button>
                   </div>
                   

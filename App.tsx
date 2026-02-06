@@ -386,15 +386,11 @@ function App() {
 
   // --- EFFECTS ---
 
+  // Apply dark mode class whenever state changes
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
-    
-    // Save dark mode preference to Firebase
-    if (user && db) {
-      setDoc(doc(db, "users", user.uid, "settings", "user_preferences"), { isDarkMode }, { merge: true }).catch(error => console.error("Error saving dark mode preference:", error));
-    }
-  }, [isDarkMode, user]);
+  }, [isDarkMode]);
 
   // Handle Timer Ticking (Visual Only)
   useEffect(() => {
@@ -437,6 +433,20 @@ function App() {
 
 
   // --- HANDLERS (SCOPED TO USER) ---
+
+  const handleThemeToggle = async () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode); // Immediate UI update
+    
+    // Persist to DB
+    if (user && db) {
+      try {
+        await setDoc(doc(db, "users", user.uid, "settings", "user_preferences"), { isDarkMode: newMode }, { merge: true });
+      } catch (error) {
+        console.error("Error saving theme preference:", error);
+      }
+    }
+  };
 
   const toggleTimer = async (id?: string) => {
     if (!user) return; 
@@ -589,6 +599,7 @@ function App() {
         activeTaskId: null,
         activeProjectId: null,
       });
+      setIsDarkMode(false);
       
       // Then sign out from Firebase
       await signOut(auth);
@@ -616,7 +627,7 @@ function App() {
       case 'dashboard': return <Dashboard timerState={timerState} goals={goals} dailyGoalTarget={dailyGoalTarget} dailyProgress={dailyProgress} recentTasks={tasks.slice(0, 3)} allTasks={tasks} projects={projects} reminders={reminders} inboxTasks={inboxTasks} onToggleTimer={toggleTimer} onNavigateToTask={(projectId) => navigateToProject(projectId)} onAddTask={addTask} onAddInboxTask={addInboxTask} onToggleInboxTask={toggleInboxTask} onNavigateToHistory={navigateToActivityHistory} onToggleSubtask={toggleSubtask} />;
       case 'analytics': return <Analytics goals={goals} dailyTarget={dailyGoalTarget} dailyProgress={dailyProgress} onUpdateGoal={updateGoal} onUpdateDailyTarget={updateDailyTarget} onNavigateToHistory={navigateToActivityHistory} />;
       case 'projects-list': return <ProjectsList projects={projects} tasks={tasks} inboxTasks={inboxTasks} onAddInboxTask={addInboxTask} onToggleInboxTask={toggleInboxTask} onSelectProject={navigateToProject} onDeleteProjects={deleteProjects} onAddProject={addProject} />;
-      case 'settings': return <Settings isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} onNavigateToHelp={navigateToHelpSupport} onSignOut={handleSignOut} userProfile={userProfile} onUpdateProfile={updateUserProfile} />;
+      case 'settings': return <Settings isDarkMode={isDarkMode} toggleTheme={handleThemeToggle} onNavigateToHelp={navigateToHelpSupport} onSignOut={handleSignOut} userProfile={userProfile} onUpdateProfile={updateUserProfile} />;
       case 'reminders': return <Reminders reminders={reminders} onAddReminder={addReminder} onToggleReminder={toggleReminder} />;
       case 'activity-history': return <ActivityHistory tasks={tasks} projects={projects} onBack={navigateToDashboard} />;
       case 'help-support': return <HelpSupport onBack={navigateToSettings} />;

@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Project, Task, TimerState, SubTask, Reminder } from '../types';
 import { TimerDisplay } from '../components/TimerDisplay';
 import { ProgressRing } from '../components/ProgressRing';
@@ -33,8 +33,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [isAlertOpen, setIsAlertOpen] = useState(false);
-  const [pendingUpdates, setPendingUpdates] = useState<{ [taskId: string]: Task }>({});
-  const updateTimersRef = useRef<{ [taskId: string]: NodeJS.Timeout }>({});
   
   // Stats
   const { stats } = project;
@@ -44,34 +42,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const isProjectTimerActive = timerState.isActive && timerState.activeProjectId === project.id;
   const isProjectActive = !!activeTask || isProjectTimerActive;
 
-  // Debounced update handler
-  const handleNotesChange = (task: Task, notes: string) => {
-    const updatedTask = { ...task, notes };
-    setPendingUpdates(prev => ({ ...prev, [task.id]: updatedTask }));
-    
-    // Clear existing timer
-    if (updateTimersRef.current[task.id]) {
-      clearTimeout(updateTimersRef.current[task.id]);
-    }
-    
-    // Set new timer - save to Firebase after 1 second of inactivity
-    updateTimersRef.current[task.id] = setTimeout(() => {
-      onUpdateTask(updatedTask);
-      setPendingUpdates(prev => {
-        const updated = { ...prev };
-        delete updated[task.id];
-        return updated;
-      });
-    }, 1000);
-  };
-
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => {
-      Object.values(updateTimersRef.current).forEach(timer => clearTimeout(timer as NodeJS.Timeout));
-    };
-  }, []);
-
   // Handlers
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +50,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         setNewTaskTitle('');
         setIsTaskModalOpen(false);
     }
+  };
+
+  const handleNotesChange = (task: Task, notes: string) => {
+    onUpdateTask({ ...task, notes });
   };
 
   const handleTaskCompletion = (e: React.MouseEvent, task: Task) => {
@@ -115,15 +89,15 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   return (
     <div className="animate-in slide-in-from-right-8 duration-500">
       
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl px-6 pt-8 pb-4 flex items-end justify-between border-b border-border/50 transition-all">
+      {/* Sticky Header - Standardized */}
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-border/50 transition-all">
         <div className="flex items-center gap-4">
             <button onClick={onBack} className="p-2 -ml-3 rounded-full hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
                 <span className="material-symbols-outlined text-xl">arrow_back</span>
             </button>
             <div>
                 <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-none">{project.name}</h1>
-                <p className="text-sm font-semibold text-muted-foreground mt-1.5">Project Overview</p>
+                <p className="text-sm font-semibold text-muted-foreground mt-1">Project Overview</p>
             </div>
         </div>
       </div>
@@ -266,13 +240,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
                                     <h5 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Notes</h5>
                                     <textarea 
                                         className="w-full bg-background border border-border rounded-xl p-4 text-sm font-medium focus:ring-primary focus:border-primary min-h-[120px] resize-none"
-                                        value={pendingUpdates[task.id]?.notes ?? task.notes ?? ''}
+                                        value={task.notes || ''}
                                         onChange={(e) => handleNotesChange(task, e.target.value)}
                                         placeholder="Add notes or description..."
                                     />
-                                    {pendingUpdates[task.id] && (
-                                        <p className="text-xs text-muted-foreground animate-pulse">Saving...</p>
-                                    )}
                                 </div>
                             </div>
                             </>

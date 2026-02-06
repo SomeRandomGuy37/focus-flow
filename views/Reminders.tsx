@@ -55,10 +55,12 @@ export const Reminders: React.FC<RemindersProps> = ({ reminders, onAddReminder, 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
       {/* Sticky Header - Standardized */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 pt-8 pb-4 flex flex-col gap-5 border-b border-border/50 transition-all">
-        <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-none">Reminders</h1>
-            <p className="text-sm font-semibold text-muted-foreground mt-1.5">Scheduled Tasks</p>
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 py-4 flex flex-col gap-4 border-b border-border/50 transition-all">
+        <div className="flex items-center justify-between">
+            <div>
+                <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-none">Reminders</h1>
+                <p className="text-sm font-semibold text-muted-foreground mt-1">Scheduled Tasks</p>
+            </div>
         </div>
         
         <div className="flex p-1.5 bg-secondary rounded-xl">

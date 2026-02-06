@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 // --- FIREBASE IMPORTS ---
 import { db } from './firebase'; 
@@ -51,6 +50,7 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const auth = getAuth();
@@ -59,14 +59,32 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    // Basic validation
+    if (isSignUp && password !== confirmPassword) {
+        setError("Passwords do not match.");
+        setLoading(false);
+        return;
+    }
+
     try {
       if (isSignUp) {
+        // checks if email is already in use by default in firebase
         await createUserWithEmailAndPassword(auth, email, password);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (err: any) {
-      setError(err.message.replace('Firebase: ', ''));
+      let msg = err.message;
+      // Handle specific Firebase errors for better UX
+      if (err.code === 'auth/email-already-in-use') {
+          msg = "This email is already registered. Please sign in.";
+      } else if (err.code === 'auth/weak-password') {
+          msg = "Password should be at least 6 characters.";
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+          msg = "Invalid email or password.";
+      }
+      setError(msg.replace('Firebase: ', ''));
     } finally {
       setLoading(false);
     }
@@ -133,6 +151,16 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
                 className="w-full p-3 rounded-xl bg-muted border border-border focus:ring-2 focus:ring-primary outline-none transition-all"
                 required 
                 />
+                {isSignUp && (
+                    <input 
+                    type="password" 
+                    placeholder="Confirm Password" 
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full p-3 rounded-xl bg-muted border border-border focus:ring-2 focus:ring-primary outline-none transition-all animate-in slide-in-from-top-2 duration-300"
+                    required 
+                    />
+                )}
             </div>
 
             {error && <p className="text-sm text-red-500 text-center bg-red-500/10 p-2 rounded-lg">{error}</p>}
@@ -149,7 +177,12 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
 
         <div className="text-center">
           <button 
-            onClick={() => setIsSignUp(!isSignUp)}
+            onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError('');
+                setConfirmPassword('');
+                setPassword('');
+            }}
             className="text-sm text-muted-foreground hover:text-primary transition-colors"
           >
             {isSignUp ? "Already have an account? Sign In" : "Need an account? Sign Up"}

@@ -410,21 +410,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </form>
                         
                         <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1">
-                            {inboxTasks.length === 0 ? (
+                            {inboxTasks.filter(t => !t.completed).length === 0 ? (
                                 <p className="text-center text-xs text-muted-foreground py-4 italic">Inbox zero.</p>
                             ) : (
-                                inboxTasks.map(task => (
+                                inboxTasks.filter(t => !t.completed).map(task => (
                                     <div 
                                         key={task.id} 
-                                        className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-500 bg-background border border-border/50 ${task.completed ? 'opacity-0 h-0 overflow-hidden m-0 p-0' : 'hover:border-primary/30'}`}
+                                        className="flex items-center gap-3 p-3 rounded-xl transition-all duration-500 bg-background border border-border/50 hover:border-primary/30"
                                     >
                                         <button 
                                             onClick={() => onToggleInboxTask(task.id)}
-                                            className={`size-6 rounded-lg border-2 flex items-center justify-center transition-colors cursor-pointer ${task.completed ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary'}`}
+                                            className="size-6 rounded-lg border-2 flex items-center justify-center transition-colors cursor-pointer border-muted-foreground/40 hover:border-primary"
                                         >
-                                            {task.completed && <span className="material-symbols-outlined text-sm text-primary-foreground font-bold">check</span>}
                                         </button>
-                                        <span className={`text-sm font-bold truncate flex-1 ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                                        <span className="text-sm font-bold truncate flex-1 text-foreground">
                                             {task.title}
                                         </span>
                                     </div>

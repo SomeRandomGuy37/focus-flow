@@ -309,10 +309,10 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
                         </form>
 
                         <div className="flex flex-col gap-0">
-                            {sortedInbox.length === 0 ? (
+                            {sortedInbox.filter(t => !t.completed).length === 0 ? (
                                 <div className="text-center py-6 text-muted-foreground italic text-sm">No quick tasks.</div>
                             ) : (
-                                sortedInbox.map(task => {
+                                sortedInbox.filter(t => !t.completed).map(task => {
                                     const isDragging = draggedItem?.id === task.id;
                                     return (
                                     <div 
@@ -322,18 +322,16 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
                                         onDragEnter={(e) => handleDragEnter(e, task)}
                                         onDragEnd={handleDragEnd}
                                         onDragOver={e => e.preventDefault()}
-                                        className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 border border-transparent 
-                                            ${task.completed ? 'opacity-0 h-0 overflow-hidden m-0 p-0' : 'hover:bg-secondary/30 hover:border-border'}
+                                        className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 border border-transparent hover:bg-secondary/30 hover:border-border
                                             ${isDragging ? 'opacity-50 scale-[0.99] bg-secondary/50' : ''}
                                         `}
                                     >
                                         <button 
                                             onClick={() => onToggleInboxTask(task.id)}
-                                            className={`size-6 rounded-lg border-2 flex items-center justify-center transition-colors cursor-pointer ${task.completed ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary'}`}
+                                            className="size-6 rounded-lg border-2 flex items-center justify-center transition-colors cursor-pointer border-muted-foreground/40 hover:border-primary"
                                         >
-                                            {task.completed && <span className="material-symbols-outlined text-sm text-primary-foreground font-bold">check</span>}
                                         </button>
-                                        <span className={`text-sm font-bold flex-1 ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                                        <span className="text-sm font-bold flex-1 text-foreground">
                                             {task.title}
                                         </span>
                                         <div 

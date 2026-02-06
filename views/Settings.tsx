@@ -1,5 +1,6 @@
 
-import React from 'react';
+import React, { useState } from 'react';
+import { Modal } from '../components/Modal';
 
 interface SettingsProps {
   isDarkMode: boolean;
@@ -8,18 +9,60 @@ interface SettingsProps {
 }
 
 export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onNavigateToHelp }) => {
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'alert' as 'alert' | 'confirm',
+    onConfirm: undefined as undefined | (() => void),
+    variant: 'default' as 'default' | 'destructive'
+  });
+
+  const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+
   const handleEditProfile = () => {
-    alert("Profile editing is coming in the next update!");
+    setModalConfig({
+        isOpen: true,
+        title: 'Coming Soon',
+        message: 'Profile editing is coming in the next update!',
+        type: 'alert',
+        onConfirm: undefined,
+        variant: 'default'
+    });
   };
 
   const handleSignOut = () => {
-    if (window.confirm("Are you sure you want to sign out?")) {
-        alert("You have been signed out.");
-    }
+    setModalConfig({
+        isOpen: true,
+        title: 'Sign Out',
+        message: 'Are you sure you want to sign out of your account?',
+        type: 'confirm',
+        variant: 'destructive',
+        onConfirm: () => {
+            // Actual sign out logic would go here
+            setTimeout(() => {
+                setModalConfig({
+                    isOpen: true,
+                    title: 'Signed Out',
+                    message: 'You have been successfully signed out.',
+                    type: 'alert',
+                    onConfirm: undefined,
+                    variant: 'default'
+                });
+            }, 300);
+        }
+    });
   };
 
   const handleNotificationsToggle = () => {
-      alert("Notification settings updated.");
+      setModalConfig({
+          isOpen: true,
+          title: 'Notifications',
+          message: 'Notification settings have been updated successfully.',
+          type: 'alert',
+          onConfirm: undefined,
+          variant: 'default'
+      });
   };
 
   return (
@@ -120,6 +163,16 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
           </section>
 
       </main>
+
+      <Modal 
+        isOpen={modalConfig.isOpen}
+        onClose={closeModal}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        onConfirm={modalConfig.onConfirm}
+        variant={modalConfig.variant}
+      />
     </div>
   );
 };

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Project, Task, InboxTask } from '../types';
 import { formatDuration } from '../utils';
+import { Modal } from '../components/Modal';
 
 interface ProjectsListProps {
   projects: Project[];
@@ -34,6 +35,11 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [newProjectColor, setNewProjectColor] = useState('bg-blue-500');
   const [newProjectIcon, setNewProjectIcon] = useState('folder');
+
+  // Confirmation Modal State
+  const [modalConfig, setModalConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void, variant?: 'default' | 'destructive'}>({
+    isOpen: false, title: '', message: '', onConfirm: () => {}
+  });
 
   const icons = ['folder', 'business', 'smartphone', 'palette', 'terminal', 'lightbulb', 'star', 'rocket', 'home', 'work', 'school', 'fitness_center'];
   const colors = ['bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-slate-500', 'bg-green-500', 'bg-red-500', 'bg-pink-500', 'bg-yellow-500', 'bg-teal-500', 'bg-indigo-500'];
@@ -68,11 +74,17 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
 
   const handleDeleteSelected = () => {
     if (selectedProjectIds.size > 0) {
-        if (window.confirm(`Are you sure you want to mark ${selectedProjectIds.size} projects as done? This will remove them.`)) {
-            onDeleteProjects(Array.from(selectedProjectIds));
-            setIsEditMode(false);
-            setSelectedProjectIds(new Set());
-        }
+        setModalConfig({
+            isOpen: true,
+            title: 'Delete Projects?',
+            message: `Are you sure you want to delete ${selectedProjectIds.size} projects? This action cannot be undone.`,
+            variant: 'destructive',
+            onConfirm: () => {
+                onDeleteProjects(Array.from(selectedProjectIds));
+                setIsEditMode(false);
+                setSelectedProjectIds(new Set());
+            }
+        });
     }
   };
 
@@ -101,9 +113,15 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
 
   const handleProjectDone = (e: React.MouseEvent, projectId: string) => {
     e.stopPropagation();
-    if (window.confirm("Mark this project as complete? It will be removed from your active projects.")) {
-        onDeleteProjects([projectId]);
-    }
+    setModalConfig({
+        isOpen: true,
+        title: 'Complete Project?',
+        message: 'Mark this project as complete? It will be removed from your active projects list.',
+        variant: 'default',
+        onConfirm: () => {
+            onDeleteProjects([projectId]);
+        }
+    });
   };
 
   return (
@@ -370,6 +388,18 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
                </div>
            </div>
        )}
+
+       {/* Global Confirmation Modal for this view */}
+       <Modal 
+         isOpen={modalConfig.isOpen}
+         onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+         title={modalConfig.title}
+         message={modalConfig.message}
+         type="confirm"
+         onConfirm={modalConfig.onConfirm}
+         variant={modalConfig.variant}
+         confirmText="Confirm"
+       />
     </div>
   );
 };

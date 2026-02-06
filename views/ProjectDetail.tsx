@@ -4,6 +4,7 @@ import { Project, Task, TimerState, SubTask, Reminder } from '../types';
 import { TimerDisplay } from '../components/TimerDisplay';
 import { ProgressRing } from '../components/ProgressRing';
 import { formatDuration } from '../utils';
+import { Modal } from '../components/Modal';
 
 interface ProjectDetailProps {
   project: Project;
@@ -31,6 +32,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
   
   // Stats
   const { stats } = project;
@@ -81,7 +83,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
         completed: false
     };
     onAddReminder(reminder);
-    alert('Reminder added to Dashboard!');
+    setIsAlertOpen(true);
   };
 
   return (
@@ -382,6 +384,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({
             </div>
           </div>
       )}
+
+      {/* Reminder Success Modal */}
+      <Modal 
+        isOpen={isAlertOpen}
+        onClose={() => setIsAlertOpen(false)}
+        title="Reminder Set"
+        message="Your reminder has been added to the dashboard."
+        type="alert"
+        variant="default"
+      />
     </div>
   );
 };

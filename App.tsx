@@ -502,14 +502,26 @@ function App() {
   const handleSignOut = async () => {
     const auth = getAuth();
     try {
-      // First navigate to dashboard
+      // Clear all local state immediately
+      setUser(null);
       setActiveView('dashboard');
       setSelectedProjectId(null);
-      // Then clear local state
       setProjects([]);
       setTasks([]);
       setInboxTasks([]);
-      // Finally sign out (this will trigger onAuthStateChanged and show AuthScreen)
+      setGoals(INITIAL_GOALS);
+      setReminders(INITIAL_REMINDERS);
+      setDailyGoalTarget(28800);
+      setDailyProgress(0);
+      setTimerState({
+        isActive: false,
+        startTime: null,
+        elapsedBeforeStart: 0,
+        activeTaskId: null,
+        activeProjectId: null,
+      });
+      
+      // Then sign out from Firebase (this will also trigger onAuthStateChanged)
       await signOut(auth);
     } catch (error) {
       console.error("Error signing out:", error);

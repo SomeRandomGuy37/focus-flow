@@ -18,13 +18,31 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
     variant: 'default' as 'default' | 'destructive'
   });
 
+  // Profile State
+  const [profile, setProfile] = useState({
+    name: 'Alex Designer',
+    email: 'alex@example.com',
+    avatar: 'https://picsum.photos/seed/user/200/200'
+  });
+
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editForm, setEditForm] = useState(profile);
+
   const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
   const handleEditProfile = () => {
+    setEditForm(profile);
+    setIsEditProfileOpen(true);
+  };
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfile(editForm);
+    setIsEditProfileOpen(false);
     setModalConfig({
         isOpen: true,
-        title: 'Coming Soon',
-        message: 'Profile editing is coming in the next update!',
+        title: 'Profile Updated',
+        message: 'Your profile details have been saved successfully.',
         type: 'alert',
         onConfirm: undefined,
         variant: 'default'
@@ -39,7 +57,6 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
         type: 'confirm',
         variant: 'destructive',
         onConfirm: () => {
-            // Actual sign out logic would go here
             setTimeout(() => {
                 setModalConfig({
                     isOpen: true,
@@ -80,12 +97,12 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
           <section className="flex flex-col gap-4">
               <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">Profile</h2>
               <div className="flex items-center gap-5 p-5 bg-card border border-border rounded-[1.5rem] shadow-sm">
-                  <div className="size-16 rounded-full bg-secondary overflow-hidden ring-2 ring-border">
-                      <img src="https://picsum.photos/seed/user/200/200" alt="Profile" className="size-full object-cover" />
+                  <div className="size-16 rounded-full bg-secondary overflow-hidden ring-2 ring-border shrink-0">
+                      <img src={profile.avatar} alt="Profile" className="size-full object-cover" />
                   </div>
-                  <div>
-                      <h3 className="font-bold text-xl">Alex Designer</h3>
-                      <p className="text-sm text-muted-foreground font-medium">alex@example.com</p>
+                  <div className="overflow-hidden">
+                      <h3 className="font-bold text-xl truncate">{profile.name}</h3>
+                      <p className="text-sm text-muted-foreground font-medium truncate">{profile.email}</p>
                       <button 
                         onClick={handleEditProfile}
                         className="text-primary text-xs font-bold uppercase mt-2 hover:underline tracking-wide"
@@ -155,7 +172,6 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
                           <div className="p-2.5 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
                               <span className="material-symbols-outlined block">logout</span>
                           </div>
-                          {/* Increased visibility for dark mode */}
                           <span className="font-bold text-red-600 dark:text-red-400 text-base">Sign Out</span>
                       </div>
                   </div>
@@ -163,6 +179,74 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
           </section>
 
       </main>
+
+      {/* Edit Profile Modal */}
+      {isEditProfileOpen && (
+           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+               {/* Backdrop */}
+               <div 
+                   className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-200" 
+                   onClick={() => setIsEditProfileOpen(false)}
+               />
+               
+               {/* Modal Content */}
+               <div className="relative bg-card border border-border rounded-[2rem] w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 p-8 flex flex-col gap-6">
+                   <div className="flex justify-between items-center">
+                       <h2 className="text-2xl font-bold tracking-tight">Edit Profile</h2>
+                       <button onClick={() => setIsEditProfileOpen(false)} className="size-8 rounded-full bg-secondary flex items-center justify-center hover:bg-destructive/10 hover:text-destructive transition-colors">
+                           <span className="material-symbols-outlined text-lg">close</span>
+                       </button>
+                   </div>
+                   
+                   <form onSubmit={handleSaveProfile} className="flex flex-col gap-6">
+                       <div className="flex flex-col items-center gap-4 p-4 bg-secondary/20 rounded-2xl border border-dashed border-border">
+                          <div className="size-24 rounded-full bg-secondary overflow-hidden ring-4 ring-background shadow-md">
+                              <img src={editForm.avatar} alt="Preview" className="size-full object-cover" />
+                          </div>
+                          <div className="w-full">
+                               <label className="text-xs font-bold uppercase text-muted-foreground ml-1 mb-1 block">Avatar URL</label>
+                               <input 
+                                   type="text" 
+                                   placeholder="https://..."
+                                   className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/50"
+                                   value={editForm.avatar}
+                                   onChange={e => setEditForm({...editForm, avatar: e.target.value})}
+                               />
+                          </div>
+                       </div>
+
+                       <div className="flex flex-col gap-2">
+                           <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Display Name</label>
+                           <input 
+                               type="text" 
+                               required
+                               placeholder="Your Name"
+                               className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base font-bold outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/50"
+                               value={editForm.name}
+                               onChange={e => setEditForm({...editForm, name: e.target.value})}
+                           />
+                       </div>
+
+                       <div className="flex flex-col gap-2">
+                           <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Email Address</label>
+                           <input 
+                               type="email" 
+                               required
+                               placeholder="email@example.com"
+                               className="w-full bg-background border border-border rounded-xl px-4 py-3 text-base font-bold outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/50"
+                               value={editForm.email}
+                               onChange={e => setEditForm({...editForm, email: e.target.value})}
+                           />
+                       </div>
+
+                       <div className="flex justify-end gap-3 pt-2">
+                           <button type="button" onClick={() => setIsEditProfileOpen(false)} className="px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-wider hover:bg-secondary transition-colors">Cancel</button>
+                           <button type="submit" className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold uppercase text-xs tracking-wider shadow-lg hover:brightness-110 active:scale-95 transition-all">Save Changes</button>
+                       </div>
+                   </form>
+               </div>
+           </div>
+      )}
 
       <Modal 
         isOpen={modalConfig.isOpen}

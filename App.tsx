@@ -214,6 +214,7 @@ function App() {
         if (doc.exists()) {
             const data = doc.data();
             if (data.dailyGoalTarget) setDailyGoalTarget(data.dailyGoalTarget);
+            if (data.isDarkMode !== undefined) setIsDarkMode(data.isDarkMode);
         }
     });
     return () => unsubscribe();
@@ -325,7 +326,12 @@ function App() {
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
-  }, [isDarkMode]);
+    
+    // Save dark mode preference to Firebase
+    if (user && db) {
+      setDoc(doc(db, "users", user.uid, "settings", "user_preferences"), { isDarkMode }, { merge: true }).catch(error => console.error("Error saving dark mode preference:", error));
+    }
+  }, [isDarkMode, user]);
 
   // Handle Timer Ticking (Visual Only)
   useEffect(() => {
@@ -493,12 +499,21 @@ function App() {
     setTimeout(() => { setReminders(prev => prev.filter(r => r.id !== id || !r.completed)); }, 1000);
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     const auth = getAuth();
-    signOut(auth);
-    // Clear local state
-    setProjects([]);
-    setTasks([]);
+    try {
+      // First navigate to dashboard
+      setActiveView('dashboard');
+      setSelectedProjectId(null);
+      // Then clear local state
+      setProjects([]);
+      setTasks([]);
+      setInboxTasks([]);
+      // Finally sign out (this will trigger onAuthStateChanged and show AuthScreen)
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   // --- RENDER ---

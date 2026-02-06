@@ -1,17 +1,19 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Project, Task, InboxTask } from '../types';
 import { formatDuration } from '../utils';
+import { Modal } from '../components/Modal';
 
 interface ProjectsListProps {
   projects: Project[];
   tasks: Task[];
   inboxTasks: InboxTask[];
-  onAddInboxTask: (title: string) => void;
+  onAddInboxTask: (title: string, order?: number) => void;
   onToggleInboxTask: (id: string) => void;
   onSelectProject: (id: string) => void;
   onDeleteProjects: (ids: string[]) => void;
   onAddProject: (project: Project) => void;
+  onReorderInboxTasks: (tasks: InboxTask[]) => void;
 }
 
 export const ProjectsList: React.FC<ProjectsListProps> = ({ 
@@ -22,7 +24,8 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
     onToggleInboxTask,
     onSelectProject, 
     onDeleteProjects,
-    onAddProject
+    onAddProject,
+    onReorderInboxTasks
 }) => {
   const [inboxInput, setInboxInput] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
@@ -35,15 +38,58 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
   const [newProjectColor, setNewProjectColor] = useState('bg-blue-500');
   const [newProjectIcon, setNewProjectIcon] = useState('folder');
 
+  // Inbox Local State for Sorting
+  const [sortedInbox, setSortedInbox] = useState<InboxTask[]>([]);
+  
+  // Drag State
+  const [draggedItem, setDraggedItem] = useState<InboxTask | null>(null);
+
+  useEffect(() => {
+      setSortedInbox([...inboxTasks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+  }, [inboxTasks]);
+
+  // Confirmation Modal State
+  const [modalConfig, setModalConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void, variant?: 'default' | 'destructive'}>({
+    isOpen: false, title: '', message: '', onConfirm: () => {}
+  });
+
   const icons = ['folder', 'business', 'smartphone', 'palette', 'terminal', 'lightbulb', 'star', 'rocket', 'home', 'work', 'school', 'fitness_center'];
   const colors = ['bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-slate-500', 'bg-green-500', 'bg-red-500', 'bg-pink-500', 'bg-yellow-500', 'bg-teal-500', 'bg-indigo-500'];
 
   const handleAddInboxTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (inboxInput.trim()) {
-        onAddInboxTask(inboxInput);
+        const order = sortedInbox.length > 0 ? (sortedInbox[sortedInbox.length - 1].order ?? Date.now()) + 1000 : Date.now();
+        onAddInboxTask(inboxInput, order);
         setInboxInput('');
     }
+  };
+
+  // Drag Handlers for Inbox
+  const handleDragStart = (e: React.DragEvent, task: InboxTask) => {
+      setDraggedItem(task);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData("text/html", task.id);
+  };
+
+  const handleDragEnter = (e: React.DragEvent, targetTask: InboxTask) => {
+      e.preventDefault();
+      if (!draggedItem || draggedItem.id === targetTask.id) return;
+
+      const currentList = [...sortedInbox];
+      const draggedIndex = currentList.findIndex(t => t.id === draggedItem.id);
+      const targetIndex = currentList.findIndex(t => t.id === targetTask.id);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+          currentList.splice(draggedIndex, 1);
+          currentList.splice(targetIndex, 0, draggedItem);
+          setSortedInbox(currentList);
+      }
+  };
+
+  const handleDragEnd = () => {
+      setDraggedItem(null);
+      onReorderInboxTasks(sortedInbox);
   };
 
   const toggleProjectSelection = (id: string) => {
@@ -68,11 +114,17 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
 
   const handleDeleteSelected = () => {
     if (selectedProjectIds.size > 0) {
-        if (window.confirm(`Are you sure you want to mark ${selectedProjectIds.size} projects as done? This will remove them.`)) {
-            onDeleteProjects(Array.from(selectedProjectIds));
-            setIsEditMode(false);
-            setSelectedProjectIds(new Set());
-        }
+        setModalConfig({
+            isOpen: true,
+            title: 'Delete Projects?',
+            message: `Are you sure you want to delete ${selectedProjectIds.size} projects? This action cannot be undone.`,
+            variant: 'destructive',
+            onConfirm: () => {
+                onDeleteProjects(Array.from(selectedProjectIds));
+                setIsEditMode(false);
+                setSelectedProjectIds(new Set());
+            }
+        });
     }
   };
 
@@ -101,19 +153,25 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
 
   const handleProjectDone = (e: React.MouseEvent, projectId: string) => {
     e.stopPropagation();
-    if (window.confirm("Mark this project as complete? It will be removed from your active projects.")) {
-        onDeleteProjects([projectId]);
-    }
+    setModalConfig({
+        isOpen: true,
+        title: 'Complete Project?',
+        message: 'Mark this project as complete? It will be removed from your active projects list.',
+        variant: 'default',
+        onConfirm: () => {
+            onDeleteProjects([projectId]);
+        }
+    });
   };
 
   return (
     <div className="flex flex-col w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
        
-       {/* Sticky Header */}
-       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 pt-8 pb-4 flex items-end justify-between border-b border-border/50 transition-all">
+       {/* Sticky Header - Standardized */}
+       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-border/50 transition-all">
          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-none">Projects</h1>
-            <p className="text-sm font-semibold text-muted-foreground mt-1.5">Manage Workflows</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-none">Projects</h1>
+            <p className="text-sm font-semibold text-muted-foreground mt-1">Manage Workflows</p>
          </div>
          
          <div className="flex items-center gap-2">
@@ -250,24 +308,40 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
                             </button>
                         </form>
 
-                        <div className="flex flex-col gap-2">
-                            {inboxTasks.length === 0 ? (
+                        <div className="flex flex-col gap-0">
+                            {sortedInbox.filter(t => !t.completed).length === 0 ? (
                                 <div className="text-center py-6 text-muted-foreground italic text-sm">No quick tasks.</div>
                             ) : (
-                                inboxTasks.map(task => (
+                                sortedInbox.filter(t => !t.completed).map(task => {
+                                    const isDragging = draggedItem?.id === task.id;
+                                    return (
                                     <div 
                                         key={task.id} 
-                                        className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-500 ${task.completed ? 'opacity-0 h-0 overflow-hidden m-0 p-0' : 'hover:bg-secondary/30'}`}
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, task)}
+                                        onDragEnter={(e) => handleDragEnter(e, task)}
+                                        onDragEnd={handleDragEnd}
+                                        onDragOver={e => e.preventDefault()}
+                                        className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 border border-transparent hover:bg-secondary/30 hover:border-border
+                                            ${isDragging ? 'opacity-50 scale-[0.99] bg-secondary/50' : ''}
+                                        `}
                                     >
                                         <button 
                                             onClick={() => onToggleInboxTask(task.id)}
-                                            className={`size-6 rounded-lg border-2 flex items-center justify-center transition-colors ${task.completed ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}
+                                            className="size-6 rounded-lg border-2 flex items-center justify-center transition-colors cursor-pointer border-muted-foreground/40 hover:border-primary"
                                         >
-                                            {task.completed && <span className="material-symbols-outlined text-sm text-primary-foreground">check</span>}
                                         </button>
-                                        <span className={`text-sm font-bold ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{task.title}</span>
+                                        <span className="text-sm font-bold flex-1 text-foreground">
+                                            {task.title}
+                                        </span>
+                                        <div 
+                                            className="p-1.5 text-muted-foreground/30 hover:text-foreground cursor-grab active:cursor-grabbing"
+                                            onMouseDown={e => e.stopPropagation()}
+                                        >
+                                            <span className="material-symbols-outlined text-lg">drag_indicator</span>
+                                        </div>
                                     </div>
-                                ))
+                                )})
                             )}
                         </div>
                     </div>
@@ -370,6 +444,18 @@ export const ProjectsList: React.FC<ProjectsListProps> = ({
                </div>
            </div>
        )}
+
+       {/* Global Confirmation Modal for this view */}
+       <Modal 
+         isOpen={modalConfig.isOpen}
+         onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+         title={modalConfig.title}
+         message={modalConfig.message}
+         type="confirm"
+         onConfirm={modalConfig.onConfirm}
+         variant={modalConfig.variant}
+         confirmText="Confirm"
+       />
     </div>
   );
 };

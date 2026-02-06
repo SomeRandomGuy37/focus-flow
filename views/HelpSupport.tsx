@@ -8,11 +8,12 @@ interface HelpSupportProps {
 export const HelpSupport: React.FC<HelpSupportProps> = ({ onBack }) => {
   return (
     <div className="animate-in slide-in-from-right-8 duration-500 w-full min-h-screen bg-background">
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 pt-6 pb-4 flex items-center gap-4 border-b border-border/50 transition-all">
+      {/* Sticky Header - Standardized */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 py-4 flex items-center gap-4 border-b border-border/50 transition-all">
         <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
             <span className="material-symbols-outlined text-xl">arrow_back</span>
         </button>
-        <h1 className="text-xl font-extrabold tracking-tight">Help & Support</h1>
+        <h1 className="text-xl font-extrabold tracking-tight text-foreground">Help & Support</h1>
       </div>
 
       <main className="p-6 max-w-2xl mx-auto space-y-8 pb-32">

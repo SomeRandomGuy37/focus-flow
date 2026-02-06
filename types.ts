@@ -6,6 +6,13 @@ export interface SubTask {
   deadline?: string;
 }
 
+export interface TimeSession {
+  id: string;
+  startTime: number;
+  endTime: number;
+  duration: number; // seconds
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -18,12 +25,18 @@ export interface Task {
   subtasks?: SubTask[];
   notes?: string;
   dueDate?: string;
+  isPriority?: boolean;
+  order?: number;
+  completedAt?: string; // ISO String
+  sessions?: TimeSession[];
 }
 
 export interface InboxTask {
   id: string;
   title: string;
   completed: boolean;
+  order?: number;
+  completedAt?: string; // ISO String
 }
 
 export interface ProjectStats {
@@ -42,6 +55,7 @@ export interface Project {
   deadline?: string;
   totalTime: number; // Lifetime total seconds
   stats: ProjectStats;
+  sessions?: TimeSession[];
 }
 
 export interface Goal {
@@ -77,4 +91,10 @@ export interface UserSettings {
   avatar: string;
   theme: 'light' | 'dark' | 'system';
   email: string;
+}
+
+export interface UserProfile {
+  name: string;
+  email: string;
+  avatar: string;
 }

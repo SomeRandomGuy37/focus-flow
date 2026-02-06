@@ -47,6 +47,14 @@ export const Calendar: React.FC<CalendarProps> = ({ logs }) => {
     if (h > 0) return `${h}h`;
     return `${m}m`;
   };
+
+  const formatTooltip = (secs: number) => {
+    if (!secs) return "0m";
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  };
   
   const monthName = today.toLocaleString('default', { month: 'long', year: 'numeric' });
 
@@ -78,6 +86,7 @@ export const Calendar: React.FC<CalendarProps> = ({ logs }) => {
                 const log = logs.find(l => l.date === dayObj.dateStr);
                 const seconds = log ? log.seconds : 0;
                 const timeString = formatTimeShort(seconds);
+                const tooltipString = formatTooltip(seconds);
                 
                 // Check if it's today to add a ring or special marker
                 const isToday = dayObj.day === today.getDate();
@@ -91,7 +100,7 @@ export const Calendar: React.FC<CalendarProps> = ({ logs }) => {
                              )}
                         </div>
                         <div className="absolute opacity-0 group-hover:opacity-100 bottom-full mb-2 bg-popover text-popover-foreground text-[10px] font-bold px-2 py-1 rounded shadow-xl border border-border whitespace-nowrap z-10 pointer-events-none transition-opacity">
-                            {dayObj.dateObj.toLocaleDateString(undefined, {month:'short', day:'numeric'})}: {(seconds/3600).toFixed(1)}h
+                            {dayObj.dateObj.toLocaleDateString(undefined, {month:'short', day:'numeric'})}: {tooltipString}
                         </div>
                     </div>
                 )

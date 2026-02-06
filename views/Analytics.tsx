@@ -9,6 +9,7 @@ import { formatDuration } from '../utils';
 interface AnalyticsProps {
   goals: Goal[];
   dailyTarget: number;
+  dailyProgress: number; // Added prop
   onUpdateGoal: (id: string, newTarget: number) => void;
   onUpdateDailyTarget: (newTarget: number) => void;
   onNavigateToHistory: () => void;
@@ -17,15 +18,15 @@ interface AnalyticsProps {
 export const Analytics: React.FC<AnalyticsProps> = ({ 
     goals, 
     dailyTarget, 
+    dailyProgress, // Destructure prop
     onUpdateGoal, 
     onUpdateDailyTarget, 
     onNavigateToHistory 
 }) => {
   const [isAdjusting, setIsAdjusting] = useState(false);
 
-  // Mock daily progress
-  const dailyProgressSeconds = 21600; // 6 hours
-  const dailyPercent = Math.min(100, (dailyProgressSeconds / dailyTarget) * 100);
+  // Use real data passed from App
+  const dailyPercent = Math.min(100, (dailyProgress / dailyTarget) * 100);
 
   // Helper to calculate remaining time
   const getRemainingTime = (target: number, current: number) => {
@@ -35,11 +36,11 @@ export const Analytics: React.FC<AnalyticsProps> = ({
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 pt-8 pb-4 flex items-end justify-between border-b border-border/50 transition-all">
+      {/* Sticky Header - Standardized */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-border/50 transition-all">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-none">Analytics</h1>
-          <p className="text-sm font-semibold text-muted-foreground mt-1.5">Performance & Trends</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground leading-none">Analytics</h1>
+          <p className="text-sm font-semibold text-muted-foreground mt-1">Performance & Trends</p>
         </div>
       </div>
 
@@ -65,12 +66,12 @@ export const Analytics: React.FC<AnalyticsProps> = ({
                         
                         <div className="text-center w-full">
                             <span className="text-xs font-bold uppercase text-muted-foreground">Daily</span>
-                            <div className="text-3xl font-bold mt-1 tracking-tight">{formatDuration(dailyProgressSeconds)}</div>
+                            <div className="text-3xl font-bold mt-1 tracking-tight">{formatDuration(dailyProgress)}</div>
                             <div className="text-xs text-muted-foreground font-bold mt-1">Target: {formatDuration(dailyTarget)}</div>
                             
                             <div className="mt-4 px-3 py-2 bg-secondary/50 rounded-xl">
                             <p className="text-xs font-bold text-foreground">
-                                {getRemainingTime(dailyTarget, dailyProgressSeconds)} left
+                                {getRemainingTime(dailyTarget, dailyProgress)} left
                             </p>
                             </div>
                         </div>
@@ -136,7 +137,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({
                              <tr>
                                  <td className="px-5 py-3 font-bold">Daily</td>
                                  <td className="px-5 py-3 text-right font-mono text-muted-foreground">{formatDuration(dailyTarget)}</td>
-                                 <td className="px-5 py-3 text-right font-mono font-bold">{formatDuration(dailyProgressSeconds)}</td>
+                                 <td className="px-5 py-3 text-right font-mono font-bold">{formatDuration(dailyProgress)}</td>
                              </tr>
                              {goals.map(g => (
                                  <tr key={g.id}>
@@ -167,15 +168,26 @@ export const Analytics: React.FC<AnalyticsProps> = ({
                             <span className="text-xl font-mono font-bold text-primary">{formatDuration(dailyTarget)}</span>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <input 
-                                type="range" 
-                                min="1" 
-                                max="1440" 
-                                step="1"
-                                value={Math.floor(dailyTarget / 60)}
-                                onChange={(e) => onUpdateDailyTarget(Number(e.target.value) * 60)}
-                                className="w-full accent-primary h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
-                            />
+                            {(() => {
+                                const min = 1;
+                                const max = 1440;
+                                const val = Math.floor(dailyTarget / 60);
+                                const percentage = ((val - min) * 100) / (max - min);
+                                return (
+                                    <input 
+                                        type="range" 
+                                        min={min} 
+                                        max={max} 
+                                        step="1"
+                                        value={val}
+                                        onChange={(e) => onUpdateDailyTarget(Number(e.target.value) * 60)}
+                                        className="w-full accent-primary h-4 bg-secondary rounded-full appearance-none cursor-pointer"
+                                        style={{
+                                            background: `linear-gradient(to right, hsl(var(--primary)) ${percentage}%, hsl(var(--secondary)) ${percentage}%)`
+                                        }}
+                                    />
+                                );
+                            })()}
                             <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">
                                 <span>1m</span>
                                 <span>24h</span>
@@ -189,15 +201,26 @@ export const Analytics: React.FC<AnalyticsProps> = ({
                                 <span className="font-bold capitalize text-sm">{goal.period} Goal</span>
                                 <span className="font-mono font-bold text-sm">{formatDuration(goal.targetSeconds)}</span>
                             </div>
-                            <input 
-                                type="range" 
-                                min="10" 
-                                max={goal.period === 'weekly' ? 6000 : 25000} // ~100h max for weekly
-                                step="5" // 5 min steps
-                                value={Math.floor(goal.targetSeconds / 60)}
-                                onChange={(e) => onUpdateGoal(goal.id, Number(e.target.value) * 60)}
-                                className="w-full accent-primary h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer"
-                            />
+                            {(() => {
+                                const min = 10;
+                                const max = goal.period === 'weekly' ? 6000 : 25000;
+                                const val = Math.floor(goal.targetSeconds / 60);
+                                const percentage = ((val - min) * 100) / (max - min);
+                                return (
+                                    <input 
+                                        type="range" 
+                                        min={min} 
+                                        max={max}
+                                        step="5"
+                                        value={val}
+                                        onChange={(e) => onUpdateGoal(goal.id, Number(e.target.value) * 60)}
+                                        className="w-full accent-primary h-4 bg-secondary rounded-full appearance-none cursor-pointer"
+                                        style={{
+                                            background: `linear-gradient(to right, hsl(var(--primary)) ${percentage}%, hsl(var(--secondary)) ${percentage}%)`
+                                        }}
+                                    />
+                                );
+                            })()}
                         </div>
                     ))}
                  </div>

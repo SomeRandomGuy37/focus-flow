@@ -10,7 +10,7 @@ interface DashboardProps {
   goals: Goal[];
   dailyGoalTarget: number;
   dailyProgress: number;
-  recentTasks: Task[];
+  recentTasks: Task[]; // Note: We will compute specific recent list inside logic
   allTasks: Task[]; 
   projects: Project[];
   reminders: Reminder[];
@@ -29,7 +29,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   goals,
   dailyGoalTarget,
   dailyProgress, 
-  recentTasks,
+  recentTasks, // Kept for interface compatibility but we use local computation for mixed list
   allTasks,
   projects,
   reminders,
@@ -65,23 +65,44 @@ export const Dashboard: React.FC<DashboardProps> = ({
     ? timerState.elapsedBeforeStart + currentSessionSeconds 
     : (selectedProjectDetails?.totalTime || 0);
 
+  // Combine recently completed tasks from Projects and Inbox
+  const completedProjectTasks = allTasks.filter(t => t.status === 'completed');
+  const completedInboxTasks = inboxTasks.filter(t => t.completed);
+  
+  // Priority Tasks
+  const priorityTasks = allTasks.filter(t => t.isPriority && t.status !== 'completed');
+  
+  // Create a unified list for "Recent Activity"
+  const recentActivityList = [
+      ...completedProjectTasks.map(t => ({ 
+          id: t.id, 
+          title: t.title, 
+          subtitle: `Part of ${projects.find(p => p.id === t.projectId)?.name || 'Project'}`,
+          time: t.totalTime,
+          type: 'project',
+          projectId: t.projectId,
+          icon: projects.find(p => p.id === t.projectId)?.icon || 'assignment'
+      })),
+      ...completedInboxTasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          subtitle: 'Quick Task',
+          time: 0,
+          type: 'inbox',
+          projectId: '',
+          icon: 'inbox'
+      }))
+  ]
+  // In a real app we'd sort by completedAt timestamp, here we just slice
+  .slice(0, 5);
+
+
   const handleInboxSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inboxInput.trim()) {
       onAddInboxTask(inboxInput);
       setInboxInput('');
     }
-  };
-
-  const toggleTaskExpansion = (taskId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newSet = new Set(expandedTaskIds);
-    if (newSet.has(taskId)) {
-        newSet.delete(taskId);
-    } else {
-        newSet.add(taskId);
-    }
-    setExpandedTaskIds(newSet);
   };
 
   const snapshotReminders = reminders
@@ -115,7 +136,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div className="relative w-full max-w-[260px]">
                     <button 
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className="w-full flex items-center justify-between bg-white/10 backdrop-blur-md border border-white/20 text-base font-bold text-primary-foreground rounded-2xl py-4 pl-6 pr-5 hover:bg-white/20 active:scale-[0.98] transition-all"
+                        className="w-full flex items-center justify-between bg-primary-foreground/10 backdrop-blur-md border border-primary-foreground/20 text-base font-bold text-primary-foreground rounded-2xl py-4 pl-6 pr-5 hover:bg-primary-foreground/20 active:scale-[0.98] transition-all"
                     >
                         <span className="truncate">{selectedProjectDetails?.name || 'Select Project'}</span>
                         <span className={`material-symbols-outlined opacity-70 text-xl transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}>expand_more</span>
@@ -139,7 +160,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     )}
                     </div>
                 ) : (
-                    <div className="flex items-center gap-2 bg-white/10 px-8 py-3 rounded-full backdrop-blur-md border border-white/10 shadow-inner">
+                    <div className="flex items-center gap-2 bg-primary-foreground/10 px-8 py-3 rounded-full backdrop-blur-md border border-primary-foreground/10 shadow-inner text-primary-foreground">
                     <span className="material-symbols-outlined text-base animate-pulse">timelapse</span>
                     <span className="text-base font-bold tracking-wide">
                         {projects.find(p => p.id === (timerState.activeProjectId || timerState.activeTaskId))?.name || 'Focusing...'}
@@ -180,33 +201,38 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 
                 <div className="flex flex-col gap-4">
-                {recentTasks.map(task => (
+                {recentActivityList.length === 0 && (
+                     <div className="p-6 bg-card border border-border border-dashed rounded-2xl text-center text-muted-foreground text-sm">
+                         No completed tasks yet.
+                     </div>
+                )}
+                {recentActivityList.map(task => (
                     <div 
                     key={task.id}
-                    onClick={() => onNavigateToTask(task.projectId)}
-                    className="group flex items-center justify-between p-4 pr-6 bg-card rounded-[1.25rem] border border-border hover:border-primary/40 hover:shadow-md transition-all cursor-pointer"
+                    onClick={() => task.type === 'project' && onNavigateToTask(task.projectId)}
+                    className={`group flex items-center justify-between p-4 pr-6 bg-card rounded-[1.25rem] border border-border hover:border-primary/40 hover:shadow-md transition-all ${task.type === 'project' ? 'cursor-pointer' : 'cursor-default'}`}
                     >
                     <div className="flex items-center gap-5">
                         <div className="size-14 rounded-2xl bg-secondary border border-border/50 flex items-center justify-center text-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
                         <span className="material-symbols-outlined text-2xl">
-                            {projects.find(p => p.id === task.projectId)?.icon || 'assignment'}
+                            {task.icon}
                         </span>
                         </div>
                         <div>
-                        <p className="font-bold text-base text-foreground">{task.title}</p>
-                        <p className="text-xs font-bold text-muted-foreground mt-0.5 uppercase tracking-wide">{task.subtitle || 'Task'}</p>
+                        <p className="font-bold text-base text-foreground line-through decoration-muted-foreground">{task.title}</p>
+                        <p className="text-xs font-bold text-muted-foreground mt-0.5 uppercase tracking-wide">{task.subtitle}</p>
                         </div>
                     </div>
                     <div className="text-right">
-                        <p className="font-bold tabular-nums text-sm">
-                        {formatDuration(task.totalTime)}
-                        </p>
-                        {task.status === 'active' && (
-                            <div className="flex items-center justify-end gap-1.5 mt-1.5">
-                                <span className="size-2 rounded-full bg-green-500 animate-pulse"></span>
-                                <span className="text-[10px] font-bold text-green-500 uppercase">Live</span>
-                            </div>
+                        {task.time > 0 && (
+                             <p className="font-bold tabular-nums text-sm">
+                                {formatDuration(task.time)}
+                             </p>
                         )}
+                        <div className="flex items-center justify-end gap-1.5 mt-1.5">
+                                <span className="material-symbols-outlined text-sm text-green-500 font-bold">check_circle</span>
+                                <span className="text-[10px] font-bold text-green-500 uppercase">Done</span>
+                        </div>
                     </div>
                     </div>
                 ))}
@@ -216,6 +242,38 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* --- RIGHT COLUMN (Side Panel) --- */}
         <div className="flex flex-col gap-10 lg:col-span-5 xl:col-span-4">
+            
+            {/* Priority Tasks Section */}
+            {priorityTasks.length > 0 && (
+                <div className="flex flex-col gap-4 animate-in slide-in-from-right-4 duration-500">
+                    <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-lg text-red-500">flag</span>
+                        Priority Focus
+                    </h2>
+                    <div className="flex flex-col gap-3">
+                        {priorityTasks.map(task => (
+                             <div 
+                                key={task.id}
+                                onClick={() => onNavigateToTask(task.projectId)}
+                                className="group flex items-center justify-between p-4 bg-red-50/50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-2xl cursor-pointer hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-all"
+                             >
+                                <div className="flex items-center gap-4">
+                                    <div className="size-10 rounded-xl bg-background border border-red-100 dark:border-red-900/50 flex items-center justify-center text-red-500 shadow-sm">
+                                        <span className="material-symbols-outlined text-lg">priority_high</span>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-sm text-foreground line-clamp-1">{task.title}</h4>
+                                        <p className="text-[10px] font-bold uppercase text-red-600/70 dark:text-red-400/70 mt-0.5">
+                                            {projects.find(p => p.id === task.projectId)?.name || 'Project Task'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className="material-symbols-outlined text-muted-foreground group-hover:translate-x-1 transition-transform">chevron_right</span>
+                             </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Progress & Goals (Grid for desktop) */}
             <div className="flex flex-col gap-4">

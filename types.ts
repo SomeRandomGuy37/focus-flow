@@ -18,6 +18,7 @@ export interface Task {
   subtasks?: SubTask[];
   notes?: string;
   dueDate?: string;
+  isPriority?: boolean;
 }
 
 export interface InboxTask {

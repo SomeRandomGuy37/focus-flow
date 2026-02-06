@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 // --- FIREBASE IMPORTS ---
-import { db } from './firebase'; 
-// ADDED: GoogleAuthProvider and signInWithPopup
+// STANDARD: Import the single 'auth' instance from configuration
+import { db, auth } from './firebase'; 
 import { 
-  getAuth, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut, 
@@ -45,15 +44,15 @@ const getWeekNumber = (d: Date) => {
     return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
-// --- AUTH COMPONENT (Login Screen with Google) ---
+// --- AUTH COMPONENT ---
 const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const auth = getAuth();
 
+  // Email Login
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -71,6 +70,7 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
     }
   };
 
+  // Google Login
   const handleGoogleAuth = async () => {
     setLoading(true);
     setError('');
@@ -95,7 +95,6 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
         </div>
 
         <div className="space-y-4">
-            {/* GOOGLE SIGN IN BUTTON */}
             <button 
                 onClick={handleGoogleAuth}
                 disabled={loading}
@@ -160,16 +159,12 @@ const AuthScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
 };
 
 function App() {
-  // --- Auth State ---
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-
-  // --- App State ---
   const [activeView, setActiveView] = useState<'dashboard' | 'analytics' | 'project' | 'projects-list' | 'settings' | 'reminders' | 'activity-history' | 'help-support'>('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // --- Data State ---
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [inboxTasks, setInboxTasks] = useState<InboxTask[]>([]);
@@ -182,12 +177,11 @@ function App() {
   const [timerState, setTimerState] = useState<TimerState>({
     isActive: false, startTime: null, elapsedBeforeStart: 0, activeTaskId: null, activeProjectId: null,
   });
-  
   const timerIntervalRef = useRef<number | null>(null);
 
-  // --- AUTH LISTENER ---
+  // --- AUTH LISTENER (Standard Firebase Pattern) ---
   useEffect(() => {
-    const auth = getAuth();
+    // We use the imported 'auth' instance here.
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthLoading(false);
@@ -195,32 +189,23 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // --- 1. PERIODIC RESET LOGIC (PRIVATE SCOPE) ---
-  useEffect(() => {
-    if (!user || !db) return; // Only run if logged in
-
-    const checkAndPerformResets = async () => {
-       // Logic handled in Projects Listener to ensure data is loaded first
-    };
-    checkAndPerformResets();
-  }, [user]);
-
-  // --- 2. FIREBASE LISTENERS (PRIVATE SCOPE) ---
+  // --- LISTENERS (Only active when logged in) ---
   
-  // Listen for Settings
+  // 1. Settings Listener (Handles Dark Mode & Goals)
   useEffect(() => {
     if (!user || !db) return;
     const unsubscribe = onSnapshot(doc(db, "users", user.uid, "settings", "user_preferences"), (doc) => {
         if (doc.exists()) {
             const data = doc.data();
             if (data.dailyGoalTarget) setDailyGoalTarget(data.dailyGoalTarget);
-            if (data.isDarkMode !== undefined) setIsDarkMode(data.isDarkMode);
+            // SYNC DARK MODE FROM DB
+            if (data.darkMode !== undefined) setIsDarkMode(data.darkMode);
         }
     });
     return () => unsubscribe();
   }, [user]);
 
-  // Listen for Tasks
+  // 2. Tasks Listener
   useEffect(() => {
     if (!user || !db) return;
     const unsubscribe = onSnapshot(collection(db, "users", user.uid, "tasks"), (snapshot) => {
@@ -230,7 +215,7 @@ function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // Listen for Inbox
+  // 3. Inbox Listener
   useEffect(() => {
     if (!user || !db) return;
     const unsubscribe = onSnapshot(collection(db, "users", user.uid, "inbox"), (snapshot) => {
@@ -240,13 +225,12 @@ function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // Listen for Projects & Handle Resets
+  // 4. Projects Listener (Handles Resets & Init)
   useEffect(() => {
     if (!user || !db) return;
     const unsubscribe = onSnapshot(collection(db, "users", user.uid, "projects"), async (snapshot) => {
       const loadedProjects = snapshot.docs.map(doc => doc.data() as Project);
       
-      // --- RESET LOGIC ---
       const metaRef = doc(db, "users", user.uid, "settings", "meta");
       const metaSnap = await getDoc(metaRef);
       const metaData = metaSnap.data() || {};
@@ -264,20 +248,17 @@ function App() {
       if ((resetDaily || resetWeekly || resetMonthly) && loadedProjects.length > 0) {
           const batch = writeBatch(db);
           let hasUpdates = false;
-
           loadedProjects.forEach(p => {
               const updates: any = {};
               if (resetDaily) updates["stats.today"] = 0;
               if (resetWeekly) updates["stats.week"] = 0;
               if (resetMonthly) updates["stats.month"] = 0;
-              
               if (Object.keys(updates).length > 0) {
                   const ref = doc(db, "users", user.uid, "projects", p.id);
                   batch.update(ref, updates);
                   hasUpdates = true;
               }
           });
-
           if (hasUpdates) {
               batch.set(metaRef, {
                   lastDailyReset: currentDayStr,
@@ -289,10 +270,9 @@ function App() {
           }
       }
 
-      // --- INITIALIZE FOR NEW USER ---
+      // Initialize Defaults
       if (loadedProjects.length === 0 && projects.length === 0) {
          if (!metaData.initialized) {
-              // Create default projects in private DB
               const batch = writeBatch(db);
               INITIAL_PROJECTS.forEach(p => {
                   const ref = doc(db, "users", user.uid, "projects", p.id);
@@ -308,7 +288,7 @@ function App() {
     return () => unsubscribe();
   }, [user]); 
 
-  // --- AUTO-CALCULATE PROGRESS ---
+  // --- VISUAL UPDATES ---
   useEffect(() => {
     if (projects.length > 0) {
         const totalToday = projects.reduce((acc, curr) => acc + (curr.stats?.today || 0), 0);
@@ -320,31 +300,20 @@ function App() {
     }
   }, [projects]);
 
-
-  // --- EFFECTS ---
-
+  // Apply Dark Mode Class
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
-    
-    // Save dark mode preference to Firebase
-    if (user && db) {
-      setDoc(doc(db, "users", user.uid, "settings", "user_preferences"), { isDarkMode }, { merge: true }).catch(error => console.error("Error saving dark mode preference:", error));
-    }
-  }, [isDarkMode, user]);
+  }, [isDarkMode]);
 
-  // Handle Timer Ticking (Visual Only)
+  // Timer Tick
   useEffect(() => {
     if (timerState.isActive) {
       timerIntervalRef.current = window.setInterval(() => {
         setTimerState(prev => ({ ...prev }));
-        
-        // 1. Task Visual Update
         if (timerState.activeTaskId) {
              setTasks(prev => prev.map(t => t.id === timerState.activeTaskId ? { ...t, totalTime: t.totalTime + 1 } : t));
         }
-
-        // 2. Project Visual Update (All Stats)
         if (timerState.activeProjectId) {
              setProjects(prev => prev.map(p => {
                  if (p.id === timerState.activeProjectId) {
@@ -352,18 +321,12 @@ function App() {
                      return {
                          ...p,
                          totalTime: (p.totalTime || 0) + 1,
-                         stats: {
-                             ...stats,
-                             today: (stats.today || 0) + 1,
-                             week: (stats.week || 0) + 1,
-                             month: (stats.month || 0) + 1
-                         }
+                         stats: { ...stats, today: (stats.today || 0) + 1, week: (stats.week || 0) + 1, month: (stats.month || 0) + 1 }
                      };
                  }
                  return p;
              }));
         }
-
         setDailyProgress(prev => prev + 1);
       }, 1000);
     } else {
@@ -372,20 +335,14 @@ function App() {
     return () => { if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); };
   }, [timerState.isActive, timerState.activeTaskId, timerState.activeProjectId]);
 
-
-  // --- HANDLERS (SCOPED TO USER) ---
-
+  // --- HANDLERS ---
   const toggleTimer = async (id?: string) => {
     if (!user) return; 
-
     if (timerState.isActive) {
-        // STOPPING
         const now = Date.now();
         const startTime = timerState.startTime;
         const secondsElapsed = startTime ? Math.floor((now - startTime) / 1000) : 0;
-
         setTimerState({ isActive: false, startTime: null, elapsedBeforeStart: 0, activeTaskId: null, activeProjectId: null });
-
         if (secondsElapsed > 0 && db) {
             try {
                 if (timerState.activeTaskId) {
@@ -404,12 +361,10 @@ function App() {
             } catch (error) { console.error("Error saving timer:", error); }
         }
     } else {
-        // STARTING
         let targetTaskId: string | null = null;
         let targetProjectId: string | null = null;
         const now = Date.now();
         const isTask = tasks.find(t => t.id === id);
-        
         if (isTask) {
             targetTaskId = id!;
             targetProjectId = isTask.projectId;
@@ -419,7 +374,6 @@ function App() {
             if (activeView === 'project' && selectedProjectId) targetProjectId = selectedProjectId;
             else targetProjectId = projects[0]?.id || 'default';
         }
-
         setTimerState({ isActive: true, startTime: now, elapsedBeforeStart: 0, activeTaskId: targetTaskId, activeProjectId: targetProjectId });
     }
   };
@@ -429,12 +383,10 @@ function App() {
     const newTask: Task = { id: `t-${Date.now()}`, projectId: projectId, title: title, status: 'active', totalTime: 0 };
     await setDoc(doc(db, "users", user.uid, "tasks", newTask.id), newTask);
   };
-
   const updateTask = async (updatedTask: Task) => {
     if (!user || !db) return;
     await setDoc(doc(db, "users", user.uid, "tasks", updatedTask.id), updatedTask);
   };
-
   const toggleSubtask = async (taskId: string, subtaskId: string) => {
     if (!user || !db) return;
     const task = tasks.find(t => t.id === taskId);
@@ -443,71 +395,67 @@ function App() {
     const taskRef = doc(db, "users", user.uid, "tasks", taskId);
     await updateDoc(taskRef, { subtasks: newSubtasks });
   };
-
   const addInboxTask = async (title: string) => {
     if (!user || !db) return;
     const newTask: InboxTask = { id: `i-${Date.now()}`, title, completed: false };
     await setDoc(doc(db, "users", user.uid, "inbox", newTask.id), newTask);
   };
-
   const toggleInboxTask = async (id: string) => {
     if (!user || !db) return;
     const task = inboxTasks.find(t => t.id === id);
     if (!task) return;
     const taskRef = doc(db, "users", user.uid, "inbox", id);
     await updateDoc(taskRef, { completed: !task.completed });
-    setTimeout(async () => {
-        if (!task.completed) { await deleteDoc(doc(db, "users", user.uid, "inbox", id)); }
-    }, 2000);
+    setTimeout(async () => { if (!task.completed) { await deleteDoc(doc(db, "users", user.uid, "inbox", id)); } }, 2000);
   };
-
   const addProject = async (project: Project) => {
     if (!user || !db) return;
     await setDoc(doc(db, "users", user.uid, "projects", project.id), project);
   };
-
+  
+  // FIX: Merge Project updates (like Notes)
   const updateProject = async (updatedProject: Project) => {
      if (!user || !db) return;
-     await setDoc(doc(db, "users", user.uid, "projects", updatedProject.id), updatedProject);
+     // Using merge: true prevents overwriting unrelated fields
+     await setDoc(doc(db, "users", user.uid, "projects", updatedProject.id), updatedProject, { merge: true });
   };
-
+  
   const deleteProjects = async (projectIds: string[]) => {
     if (!user || !db) return;
     projectIds.forEach(async (id) => { await deleteDoc(doc(db, "users", user.uid, "projects", id)); });
     const tasksToDelete = tasks.filter(t => projectIds.includes(t.projectId));
     tasksToDelete.forEach(async (t) => { await deleteDoc(doc(db, "users", user.uid, "tasks", t.id)); });
-    
-    if (selectedProjectId && projectIds.includes(selectedProjectId)) {
-        setSelectedProjectId(null);
-        setActiveView('projects-list');
-    }
+    if (selectedProjectId && projectIds.includes(selectedProjectId)) { setSelectedProjectId(null); setActiveView('projects-list'); }
   };
-
   const updateDailyTarget = async (newTarget: number) => {
      if (!user || !db) return;
      setDailyGoalTarget(newTarget); 
      await setDoc(doc(db, "users", user.uid, "settings", "user_preferences"), { dailyGoalTarget: newTarget }, { merge: true });
   };
-
-  const updateGoal = (id: string, newTarget: number) => {
-    setGoals(prev => prev.map(g => g.id === id ? { ...g, targetSeconds: newTarget } : g));
-  };
   
-  const addReminder = (reminder: Reminder) => { setReminders(prev => [...prev, reminder]); };
-  const toggleReminder = (id: string) => {
-    setReminders(prev => prev.map(r => r.id === id ? { ...r, completed: !r.completed } : r));
-    setTimeout(() => { setReminders(prev => prev.filter(r => r.id !== id || !r.completed)); }, 1000);
+  // FIX: Dark Mode Persistence
+  const handleToggleTheme = async () => {
+      const newMode = !isDarkMode;
+      setIsDarkMode(newMode); // Update local instantly
+      if (user) {
+          // Save to cloud
+          await setDoc(doc(db, "users", user.uid, "settings", "user_preferences"), { darkMode: newMode }, { merge: true });
+      }
   };
 
+  const updateGoal = (id: string, newTarget: number) => { setGoals(prev => prev.map(g => g.id === id ? { ...g, targetSeconds: newTarget } : g)); };
+  const addReminder = (reminder: Reminder) => { setReminders(prev => [...prev, reminder]); };
+  const toggleReminder = (id: string) => { setReminders(prev => prev.map(r => r.id === id ? { ...r, completed: !r.completed } : r)); setTimeout(() => { setReminders(prev => prev.filter(r => r.id !== id || !r.completed)); }, 1000); };
+  
+  // FIX: Sign Out Logic
   const handleSignOut = async () => {
-    const auth = getAuth();
     try {
-      // Clear all local state immediately
-      setUser(null);
+      await signOut(auth); // Use the imported 'auth'
+      // Hard Reset of State
+      setProjects([]); 
+      setTasks([]);
       setActiveView('dashboard');
       setSelectedProjectId(null);
-      setProjects([]);
-      setTasks([]);
       setInboxTasks([]);
       setGoals(INITIAL_GOALS);
       setReminders(INITIAL_REMINDERS);
@@ -520,15 +468,10 @@ function App() {
         activeTaskId: null,
         activeProjectId: null,
       });
-      
-      // Then sign out from Firebase (this will also trigger onAuthStateChanged)
-      await signOut(auth);
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error("Sign out error", error);
     }
   };
-
-  // --- RENDER ---
 
   if (authLoading) return <div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>;
   if (!user) return <AuthScreen onLogin={setUser} />;
@@ -547,7 +490,7 @@ function App() {
       case 'dashboard': return <Dashboard timerState={timerState} goals={goals} dailyGoalTarget={dailyGoalTarget} dailyProgress={dailyProgress} recentTasks={tasks.slice(0, 3)} allTasks={tasks} projects={projects} reminders={reminders} inboxTasks={inboxTasks} onToggleTimer={toggleTimer} onNavigateToTask={(projectId) => navigateToProject(projectId)} onAddTask={addTask} onAddInboxTask={addInboxTask} onToggleInboxTask={toggleInboxTask} onNavigateToHistory={navigateToActivityHistory} onToggleSubtask={toggleSubtask} />;
       case 'analytics': return <Analytics goals={goals} dailyTarget={dailyGoalTarget} onUpdateGoal={updateGoal} onUpdateDailyTarget={updateDailyTarget} onNavigateToHistory={navigateToActivityHistory} />;
       case 'projects-list': return <ProjectsList projects={projects} tasks={tasks} inboxTasks={inboxTasks} onAddInboxTask={addInboxTask} onToggleInboxTask={toggleInboxTask} onSelectProject={navigateToProject} onDeleteProjects={deleteProjects} onAddProject={addProject} />;
-      case 'settings': return <Settings isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} onNavigateToHelp={navigateToHelpSupport} />;
+      case 'settings': return <Settings isDarkMode={isDarkMode} toggleTheme={handleToggleTheme} onNavigateToHelp={navigateToHelpSupport} onSignOut={handleSignOut} />;
       case 'reminders': return <Reminders reminders={reminders} onAddReminder={addReminder} onToggleReminder={toggleReminder} />;
       case 'activity-history': return <ActivityHistory tasks={tasks} projects={projects} onBack={navigateToDashboard} />;
       case 'help-support': return <HelpSupport onBack={navigateToSettings} />;
@@ -558,24 +501,10 @@ function App() {
 
   return (
     <>
-      {/* GAP FIX: CSS Reset */}
       <style>{`* { box-sizing: border-box; } html, body, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow-x: hidden; }`}</style>
-      
       <div className="relative flex flex-col w-full min-h-[100dvh] bg-background text-foreground pb-0 overflow-x-hidden border-t border-transparent" style={{ margin: 0, padding: 0 }}>
-        
-        {/* Sign Out Button (Visible in Settings) */}
-        {activeView === 'settings' && (
-            <div className="absolute top-6 right-6 z-50">
-                <button onClick={handleSignOut} className="text-red-500 text-sm font-medium hover:underline">Sign Out</button>
-            </div>
-        )}
-
-        <div className="flex-1 w-full pb-20">
-          {renderView()}
-          <div className="w-full text-center py-8 text-[10px] font-bold text-muted-foreground/30 uppercase tracking-[0.2em] select-none">Michael Fan made this</div>
-        </div>
-
-        {/* Bottom Navigation */}
+        {activeView === 'settings' && (<div className="absolute top-6 right-6 z-50"><button onClick={handleSignOut} className="text-red-500 text-sm font-medium hover:underline">Sign Out</button></div>)}
+        <div className="flex-1 w-full pb-20">{renderView()}<div className="w-full text-center py-8 text-[10px] font-bold text-muted-foreground/30 uppercase tracking-[0.2em] select-none">Michael Fan made this</div></div>
         <div className="fixed bottom-0 left-0 w-full bg-background/90 backdrop-blur-2xl border-t border-border pb-4 z-40 transition-colors">
           <div className="flex justify-between items-center px-8 max-w-lg mx-auto">
             <button onClick={navigateToDashboard} className={`flex flex-col items-center gap-1 p-2 group transition-all duration-300 ${activeView === 'dashboard' ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}><span className={`material-symbols-outlined text-[28px] transition-transform ${activeView === 'dashboard' ? 'scale-110 fill-1' : ''}`}>home</span></button>

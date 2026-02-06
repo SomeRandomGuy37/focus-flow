@@ -6,9 +6,10 @@ interface SettingsProps {
   isDarkMode: boolean;
   toggleTheme: () => void;
   onNavigateToHelp: () => void;
+  onSignOut: () => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onNavigateToHelp }) => {
+export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onNavigateToHelp, onSignOut }) => {
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
     title: '',
@@ -57,16 +58,8 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
         type: 'confirm',
         variant: 'destructive',
         onConfirm: () => {
-            setTimeout(() => {
-                setModalConfig({
-                    isOpen: true,
-                    title: 'Signed Out',
-                    message: 'You have been successfully signed out.',
-                    type: 'alert',
-                    onConfirm: undefined,
-                    variant: 'default'
-                });
-            }, 300);
+             // Immediately call parent handler to sign out and redirect
+             onSignOut();
         }
     });
   };

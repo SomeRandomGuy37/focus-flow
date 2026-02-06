@@ -34,7 +34,7 @@ import { Reminders } from './views/Reminders';
 import { ActivityHistory } from './views/ActivityHistory';
 import { HelpSupport } from './views/HelpSupport';
 import { INITIAL_PROJECTS, INITIAL_GOALS, INITIAL_REMINDERS } from './constants';
-import { TimerState, Task, Project, Goal, Reminder, InboxTask } from './types';
+import { TimerState, Task, Project, Goal, Reminder, InboxTask, UserProfile } from './types';
 
 // --- HELPER: Get ISO Week Number ---
 const getWeekNumber = (d: Date) => {
@@ -202,6 +202,7 @@ function App() {
   const [activeView, setActiveView] = useState<'dashboard' | 'analytics' | 'project' | 'projects-list' | 'settings' | 'reminders' | 'activity-history' | 'help-support'>('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   // --- Data State ---
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -241,17 +242,40 @@ function App() {
 
   // --- 2. FIREBASE LISTENERS (PRIVATE SCOPE) ---
   
-  // Listen for Settings
+  // Listen for Settings and Profile Sync
   useEffect(() => {
     if (!user || !db) return;
-    const unsubscribe = onSnapshot(doc(db, "users", user.uid, "settings", "user_preferences"), (doc) => {
+    
+    // Listen to User Preferences
+    const prefUnsubscribe = onSnapshot(doc(db, "users", user.uid, "settings", "user_preferences"), (doc) => {
         if (doc.exists()) {
             const data = doc.data();
             if (data.dailyGoalTarget) setDailyGoalTarget(data.dailyGoalTarget);
             if (data.isDarkMode !== undefined) setIsDarkMode(data.isDarkMode);
         }
     });
-    return () => unsubscribe();
+
+    // Listen/Create User Profile
+    const profileRef = doc(db, "users", user.uid, "settings", "profile");
+    const profileUnsubscribe = onSnapshot(profileRef, async (docSnap) => {
+        if (docSnap.exists()) {
+            setUserProfile(docSnap.data() as UserProfile);
+        } else {
+            // Profile doesn't exist, create it based on Auth provider
+            const newProfile: UserProfile = {
+                name: user.displayName || 'New User',
+                email: user.email || '',
+                // Use Google Photo if available, otherwise a placeholder
+                avatar: user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName ? encodeURIComponent(user.displayName) : 'User'}&background=random`
+            };
+            await setDoc(profileRef, newProfile);
+        }
+    });
+
+    return () => {
+        prefUnsubscribe();
+        profileUnsubscribe();
+    };
   }, [user]);
 
   // Listen for Tasks
@@ -533,11 +557,17 @@ function App() {
     setTimeout(() => { setReminders(prev => prev.filter(r => r.id !== id || !r.completed)); }, 1000);
   };
 
+  const updateUserProfile = async (updatedProfile: UserProfile) => {
+    if (!user || !db) return;
+    await setDoc(doc(db, "users", user.uid, "settings", "profile"), updatedProfile);
+  };
+
   const handleSignOut = async () => {
     const auth = getAuth();
     try {
       // Clear all local state immediately which triggers "AuthScreen" render (redirect)
       setUser(null);
+      setUserProfile(null);
       setActiveView('dashboard');
       setSelectedProjectId(null);
       setProjects([]);
@@ -581,7 +611,7 @@ function App() {
       case 'dashboard': return <Dashboard timerState={timerState} goals={goals} dailyGoalTarget={dailyGoalTarget} dailyProgress={dailyProgress} recentTasks={tasks.slice(0, 3)} allTasks={tasks} projects={projects} reminders={reminders} inboxTasks={inboxTasks} onToggleTimer={toggleTimer} onNavigateToTask={(projectId) => navigateToProject(projectId)} onAddTask={addTask} onAddInboxTask={addInboxTask} onToggleInboxTask={toggleInboxTask} onNavigateToHistory={navigateToActivityHistory} onToggleSubtask={toggleSubtask} />;
       case 'analytics': return <Analytics goals={goals} dailyTarget={dailyGoalTarget} onUpdateGoal={updateGoal} onUpdateDailyTarget={updateDailyTarget} onNavigateToHistory={navigateToActivityHistory} />;
       case 'projects-list': return <ProjectsList projects={projects} tasks={tasks} inboxTasks={inboxTasks} onAddInboxTask={addInboxTask} onToggleInboxTask={toggleInboxTask} onSelectProject={navigateToProject} onDeleteProjects={deleteProjects} onAddProject={addProject} />;
-      case 'settings': return <Settings isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} onNavigateToHelp={navigateToHelpSupport} onSignOut={handleSignOut} />;
+      case 'settings': return <Settings isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} onNavigateToHelp={navigateToHelpSupport} onSignOut={handleSignOut} userProfile={userProfile} onUpdateProfile={updateUserProfile} />;
       case 'reminders': return <Reminders reminders={reminders} onAddReminder={addReminder} onToggleReminder={toggleReminder} />;
       case 'activity-history': return <ActivityHistory tasks={tasks} projects={projects} onBack={navigateToDashboard} />;
       case 'help-support': return <HelpSupport onBack={navigateToSettings} />;

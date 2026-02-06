@@ -78,3 +78,9 @@ export interface UserSettings {
   theme: 'light' | 'dark' | 'system';
   email: string;
 }
+
+export interface UserProfile {
+  name: string;
+  email: string;
+  avatar: string;
+}

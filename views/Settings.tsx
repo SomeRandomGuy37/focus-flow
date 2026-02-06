@@ -1,15 +1,25 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../components/Modal';
+import { UserProfile } from '../types';
 
 interface SettingsProps {
   isDarkMode: boolean;
   toggleTheme: () => void;
   onNavigateToHelp: () => void;
   onSignOut: () => void;
+  userProfile: UserProfile | null;
+  onUpdateProfile: (profile: UserProfile) => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onNavigateToHelp, onSignOut }) => {
+export const Settings: React.FC<SettingsProps> = ({ 
+    isDarkMode, 
+    toggleTheme, 
+    onNavigateToHelp, 
+    onSignOut,
+    userProfile,
+    onUpdateProfile
+}) => {
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
     title: '',
@@ -19,26 +29,32 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
     variant: 'default' as 'default' | 'destructive'
   });
 
-  // Profile State
-  const [profile, setProfile] = useState({
-    name: 'Alex Designer',
-    email: 'alex@example.com',
-    avatar: 'https://picsum.photos/seed/user/200/200'
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  
+  // Initialize form with existing profile or defaults
+  const [editForm, setEditForm] = useState<UserProfile>({
+    name: '',
+    email: '',
+    avatar: ''
   });
 
-  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [editForm, setEditForm] = useState(profile);
+  // Sync form with prop when loaded
+  useEffect(() => {
+    if (userProfile) {
+        setEditForm(userProfile);
+    }
+  }, [userProfile]);
 
   const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
   const handleEditProfile = () => {
-    setEditForm(profile);
+    if (userProfile) setEditForm(userProfile);
     setIsEditProfileOpen(true);
   };
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    setProfile(editForm);
+    onUpdateProfile(editForm);
     setIsEditProfileOpen(false);
     setModalConfig({
         isOpen: true,
@@ -75,6 +91,8 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
       });
   };
 
+  if (!userProfile) return <div className="p-6">Loading profile...</div>;
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
       {/* Sticky Header - Reduced top padding */}
@@ -91,11 +109,11 @@ export const Settings: React.FC<SettingsProps> = ({ isDarkMode, toggleTheme, onN
               <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest pl-1">Profile</h2>
               <div className="flex items-center gap-5 p-5 bg-card border border-border rounded-[1.5rem] shadow-sm">
                   <div className="size-16 rounded-full bg-secondary overflow-hidden ring-2 ring-border shrink-0">
-                      <img src={profile.avatar} alt="Profile" className="size-full object-cover" />
+                      <img src={userProfile.avatar} alt="Profile" className="size-full object-cover" />
                   </div>
                   <div className="overflow-hidden">
-                      <h3 className="font-bold text-xl truncate">{profile.name}</h3>
-                      <p className="text-sm text-muted-foreground font-medium truncate">{profile.email}</p>
+                      <h3 className="font-bold text-xl truncate">{userProfile.name}</h3>
+                      <p className="text-sm text-muted-foreground font-medium truncate">{userProfile.email}</p>
                       <button 
                         onClick={handleEditProfile}
                         className="text-primary text-xs font-bold uppercase mt-2 hover:underline tracking-wide"
